@@ -1,0 +1,17 @@
+[dotenv@17.2.3] injecting env (2) from .env -- tip: ≡ƒöÉ encrypt with Dotenvx: https://dotenvx.com
+C:\Cursor\cvnhs_electronic_research_library\backend\server.js:28
+    store: MongoStore.create({
+                      ^
+
+TypeError: MongoStore.create is not a function
+    at Object.<anonymous> (C:\Cursor\cvnhs_electronic_research_library\backend\server.js:28:23)
+    at Module._compile (node:internal/modules/cjs/loader:1554:14)
+    at Object..js (node:internal/modules/cjs/loader:1706:10)
+    at Module.load (node:internal/modules/cjs/loader:1289:32)
+    at Function._load (node:internal/modules/cjs/loader:1108:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:170:5)
+    at node:internal/main/run_main_module:36:49
+
+Node.js v22.14.0
