@@ -155,7 +155,7 @@ const PaperDetailPage: React.FC = () => {
           {/* Stats */}
           <div className="flex items-center gap-6 text-sm text-muted-foreground mb-8">
             <span className="flex items-center gap-2"><Download className="w-4 h-4" /> {paper.download_count} downloads</span>
-            <span>Published: {new Date(paper.published_date).toLocaleDateString()}</span>
+            <span>Uploaded: {new Date(paper.published_date).toLocaleDateString()}</span>
           </div>
 
           {/* Actions */}
