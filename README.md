@@ -120,8 +120,3 @@ For detailed documentation including API reference, database schema, and archite
 
 This project was developed for **Catubig Valley National High School** as an internal research archive system.
 
----
-
-## 🤝 Contributing
-
-For issues or feature requests, please contact the school's IT department.

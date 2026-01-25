@@ -284,6 +284,7 @@ app.get('/api/users/sessions', isAuthenticated, async (req, res) => {
 });
 
 // DELETE /api/users/:id/sessions - Kick user (delete all their sessions)
+// DELETE /api/users/:id/sessions - Kick user (delete all their sessions)
 app.delete('/api/users/:id/sessions', isAuthenticated, async (req, res) => {
     try {
         const { id } = req.params;
@@ -294,11 +295,36 @@ app.delete('/api/users/:id/sessions', isAuthenticated, async (req, res) => {
         }
 
         const sessionsCollection = mongoose.connection.db.collection('sessions');
-        const result = await sessionsCollection.deleteMany({
-            'session': { $regex: `"id":"${id}"` }
+
+        // rigorous approach: find candidate sessions first, then verify
+        // This avoids brittle regex matching on JSON strings
+        const candidateSessions = await sessionsCollection.find({
+            'session': { $regex: id } // loose match to find potential sessions
+        }).toArray();
+
+        const sessionIdsToDelete = [];
+
+        candidateSessions.forEach(sess => {
+            try {
+                const sessionData = JSON.parse(sess.session);
+                // Verify strict equality of user ID
+                if (sessionData.user && String(sessionData.user.id) === id) {
+                    sessionIdsToDelete.push(sess._id);
+                }
+            } catch (e) {
+                // ignore parse errors
+            }
         });
 
-        res.json({ message: 'User kicked successfully', deletedCount: result.deletedCount });
+        let deletedCount = 0;
+        if (sessionIdsToDelete.length > 0) {
+            const result = await sessionsCollection.deleteMany({
+                _id: { $in: sessionIdsToDelete }
+            });
+            deletedCount = result.deletedCount;
+        }
+
+        res.json({ message: 'User kicked successfully', deletedCount });
     } catch (error) {
         console.error('Error kicking user:', error);
         res.status(500).json({ message: 'Error kicking user' });
