@@ -349,14 +349,19 @@ const AdminUsersPage: React.FC = () => {
         header: 'Actions',
         cell: ({ row }) => {
           const isCurrentUser = row.original._id === currentUser?.id;
+          const isAdmin = currentUser?.role === 'admin';
           const isActive = activeUserIds.includes(row.original._id);
+
+          // Allow edit if it's the current user OR if the current user is an admin
+          const canEdit = isCurrentUser || isAdmin;
+
           return (
             <div className="flex items-center gap-1">
-              {isCurrentUser && (
+              {canEdit && (
                 <button
                   onClick={() => openEditModal(row.original)}
                   className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                  title="Edit Your Account"
+                  title={isCurrentUser ? "Edit Your Account" : "Edit User Full Name"}
                 >
                   <Pencil className="w-4 h-4" />
                 </button>
@@ -389,8 +394,29 @@ const AdminUsersPage: React.FC = () => {
     [currentUser, activeUserIds]
   );
 
+  const sortedData = React.useMemo(() => {
+    const rolePriority = {
+      admin: 0,
+      editor: 1,
+      viewer: 2,
+    };
+
+    return [...data].sort((a, b) => {
+      // 1. Primary Sort: Role Priority
+      const priorityA = rolePriority[a.role];
+      const priorityB = rolePriority[b.role];
+
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+
+      // 2. Secondary Sort: Full Name (A-Z)
+      return a.full_name.localeCompare(b.full_name);
+    });
+  }, [data]);
+
   const table = useReactTable({
-    data,
+    data: sortedData,
     columns,
     state: { sorting, globalFilter },
     onSortingChange: setSorting,
@@ -540,6 +566,14 @@ const AdminUsersPage: React.FC = () => {
                       </div>
                     )}
 
+                    {/* Info Banner when admin editing other user */}
+                    {modalMode === 'edit' && selectedUser?._id !== currentUser?.id && (
+                      <div className="p-3 bg-blue-500/10 text-blue-500 text-xs rounded-xl flex items-center gap-2 border border-blue-500/20">
+                        <ShieldCheck className="w-4 h-4 flex-shrink-0" />
+                        <p>As an administrator, you are editing <strong>{selectedUser?.full_name}</strong>'s account. Per security policy, only the Full Name can be modified.</p>
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* Left Column or Single Column */}
                       <div className="space-y-4">
@@ -556,9 +590,18 @@ const AdminUsersPage: React.FC = () => {
                         </div>
 
                         <div className="space-y-2">
-                          <label className="text-sm font-medium text-foreground">Username</label>
+                          <div className="flex items-center justify-between">
+                            <label className="text-sm font-medium text-foreground">Username</label>
+                            {modalMode === 'edit' && selectedUser?._id !== currentUser?.id && (
+                              <div className="flex items-center gap-1 text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded uppercase font-bold tracking-tight">
+                                <X className="w-2.5 h-2.5" />
+                                Restricted
+                              </div>
+                            )}
+                          </div>
                           <input
                             required
+                            disabled={modalMode === 'edit' && selectedUser?._id !== currentUser?.id}
                             type="text"
                             value={formData.username}
                             onChange={(e) => {
@@ -567,7 +610,7 @@ const AdminUsersPage: React.FC = () => {
                             }}
                             placeholder="Enter username"
                             className={`w-full px-4 py-2 rounded-xl bg-secondary border outline-none text-sm transition-colors ${errors.username ? 'border-destructive focus:border-destructive' : 'border-border focus:border-primary'
-                              }`}
+                              } ${modalMode === 'edit' && selectedUser?._id !== currentUser?.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                           />
                           {errors.username && (
                             <p className="text-xs text-destructive mt-1 font-medium">{errors.username}</p>
@@ -578,29 +621,40 @@ const AdminUsersPage: React.FC = () => {
                       {/* Right Column */}
                       <div className="space-y-4">
                         <div className="space-y-2">
-                          <label className="text-sm font-medium text-foreground">
-                            {modalMode === 'add' ? 'Password' : 'New Password (Optional)'}
-                          </label>
+                          <div className="flex items-center justify-between">
+                            <label className="text-sm font-medium text-foreground">
+                              {modalMode === 'add' ? 'Password' : 'New Password (Optional)'}
+                            </label>
+                            {modalMode === 'edit' && selectedUser?._id !== currentUser?.id && (
+                              <div className="flex items-center gap-1 text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded uppercase font-bold tracking-tight">
+                                <X className="w-2.5 h-2.5" />
+                                Restricted
+                              </div>
+                            )}
+                          </div>
                           <div className="relative">
                             <input
                               required={modalMode === 'add'}
+                              disabled={modalMode === 'edit' && selectedUser?._id !== currentUser?.id}
                               type={showPassword ? 'text' : 'password'}
                               value={formData.password}
                               onChange={(e) => {
                                 setFormData({ ...formData, password: e.target.value });
                                 if (errors.password) setErrors({ ...errors, password: '' });
                               }}
-                              placeholder={modalMode === 'add' ? "Enter password" : "Leave blank to keep current"}
+                              placeholder={modalMode === 'add' ? "Enter password" : (selectedUser?._id !== currentUser?.id ? "Administrator restricted" : "Leave blank to keep current")}
                               className={`w-full pl-4 pr-12 py-2 rounded-xl bg-secondary border outline-none text-sm transition-colors ${errors.password ? 'border-destructive focus:border-destructive' : 'border-border focus:border-primary'
-                                }`}
+                                } ${modalMode === 'edit' && selectedUser?._id !== currentUser?.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                             />
-                            <button
-                              type="button"
-                              onClick={() => setShowPassword(!showPassword)}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors z-10"
-                            >
-                              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                            </button>
+                            {!(modalMode === 'edit' && selectedUser?._id !== currentUser?.id) && (
+                              <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors z-10"
+                              >
+                                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              </button>
+                            )}
                           </div>
                           {errors.password && (
                             <p className="text-xs text-destructive mt-1 font-medium">{errors.password}</p>
@@ -608,11 +662,20 @@ const AdminUsersPage: React.FC = () => {
                         </div>
 
                         <div className="space-y-2">
-                          <label className="text-sm font-medium text-foreground">Role</label>
+                          <div className="flex items-center justify-between">
+                            <label className="text-sm font-medium text-foreground">Role</label>
+                            {modalMode === 'edit' && selectedUser?._id !== currentUser?.id && (
+                              <div className="flex items-center gap-1 text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded uppercase font-bold tracking-tight">
+                                <X className="w-2.5 h-2.5" />
+                                Restricted
+                              </div>
+                            )}
+                          </div>
                           <select
+                            disabled={modalMode === 'edit' && selectedUser?._id !== currentUser?.id}
                             value={formData.role}
                             onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
-                            className="w-full px-4 py-2 rounded-xl bg-secondary border border-border focus:border-primary outline-none text-sm transition-colors"
+                            className={`w-full px-4 py-2 rounded-xl bg-secondary border border-border focus:border-primary outline-none text-sm transition-colors ${modalMode === 'edit' && selectedUser?._id !== currentUser?.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                           >
                             <option value="viewer">Viewer</option>
                             <option value="editor">Editor</option>

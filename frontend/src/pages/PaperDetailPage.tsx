@@ -54,7 +54,10 @@ const PaperDetailPage: React.FC = () => {
       const initials = author.firstName.trim().split(/\s+/)
         .map(n => `${n.charAt(0).toUpperCase()}.`)
         .join(' ');
-      return `${author.lastName}, ${initials}`;
+      const middleInitial = author.middleName ? `${author.middleName.charAt(0).toUpperCase()}. ` : '';
+      let name = `${author.lastName}, ${initials}${middleInitial}`.trim();
+      if (author.suffix) name += ` ${author.suffix}`;
+      return name;
     });
 
     if (formatted.length === 0) return '';
@@ -70,8 +73,8 @@ const PaperDetailPage: React.FC = () => {
     return str.charAt(0).toUpperCase() + str.slice(1);
   };
 
-  const citationYear = paper.school_year.includes('-')
-    ? paper.school_year.split('-')[1].trim()
+  const citationYear = paper.school_year.includes(' - ')
+    ? paper.school_year.split(' - ')[1].trim()
     : paper.school_year;
 
   const apaTitle = toSentenceCase(paper.title);

@@ -99,8 +99,8 @@ app.post('/api/auth/login', async (req, res) => {
             const log = new ActivityLog({
                 performedBy: user.full_name,
                 actionType: 'Login',
-                targetItem: 'System',
-                changeDetails: 'User logged in'
+                targetItem: user.full_name,
+                changeDetails: 'Successful login'
             });
             await log.save();
         } catch (e) { console.error('Login log error', e); }
@@ -126,8 +126,8 @@ app.post('/api/auth/logout', (req, res) => {
                 const log = new ActivityLog({
                     performedBy: userName,
                     actionType: 'Logout',
-                    targetItem: 'System',
-                    changeDetails: 'User logged out'
+                    targetItem: userName,
+                    changeDetails: 'Manual session termination'
                 });
                 await log.save();
             } catch (e) { console.error('Logout log error', e); }
@@ -222,7 +222,7 @@ app.post('/api/users', isAuthenticated, async (req, res) => {
         const userObj = newUser.toObject();
         delete userObj.password;
 
-        await logActivity(req, 'Added User', full_name, `Role: ${role || 'viewer'}`);
+        await logActivity(req, 'Added User', full_name, `Account created with '${role || 'viewer'}' role`);
 
         res.status(201).json(userObj);
     } catch (error) {
@@ -237,49 +237,74 @@ app.put('/api/users/:id', isAuthenticated, async (req, res) => {
         const { id } = req.params;
         const { full_name, username, role, password, currentPassword } = req.body;
 
-        // 1. Security Check: If a currentPassword is provided (mostly for admin updates or changing password), verify it.
-        // We verify against the *currently logged in* user's password to authorize the action.
-        if (currentPassword) {
-            const changingAdmin = await User.findById(req.session.user.id);
-            if (!changingAdmin) return res.status(401).json({ message: 'Unauthorized' });
+        const isSelf = req.session.user.id === id;
+        const isAdmin = req.session.user.role === 'admin';
 
-            const isMatch = await bcrypt.compare(currentPassword, changingAdmin.password);
+        // 1. Authorization Check: Must be self OR an admin
+        if (!isSelf && !isAdmin) {
+            return res.status(403).json({ message: 'Forbidden: You do not have permission to edit this account.' });
+        }
+
+        // 2. Security Check: For self-edits or sensitive changes, verify current password if provided
+        if (currentPassword) {
+            const changingUser = await User.findById(req.session.user.id);
+            if (!changingUser) return res.status(401).json({ message: 'Unauthorized' });
+
+            const isMatch = await bcrypt.compare(currentPassword, changingUser.password);
             if (!isMatch) {
                 return res.status(403).json({ message: 'Incorrect current password' });
             }
         }
 
-        // RBAC Check: Users can only edit their OWN account.
-        // Admins CANNOT edit other users, they can only delete/kick.
-        if (req.session.user.id !== id) {
-            return res.status(403).json({ message: 'You can only edit your own profile.' });
-        }
-
         const userToUpdate = await User.findById(id);
         if (!userToUpdate) return res.status(404).json({ message: 'User not found' });
 
-        // Update fields
-        if (full_name) userToUpdate.full_name = full_name;
-        if (username) {
-            // Check uniqueness if changing
-            if (username !== userToUpdate.username) {
+        const originalName = userToUpdate.full_name;
+        let changes = [];
+
+        // 3. Apply changes based on role/ownership
+        if (isSelf) {
+            // Self-edit: Full access to these fields
+            if (full_name && full_name !== userToUpdate.full_name) {
+                userToUpdate.full_name = full_name;
+                changes.push('Full Name');
+            }
+            if (username && username !== userToUpdate.username) {
                 const existing = await User.findOne({ username });
                 if (existing) return res.status(400).json({ message: 'Username taken' });
                 userToUpdate.username = username;
+                changes.push('Username');
             }
+            if (role && role !== userToUpdate.role) {
+                userToUpdate.role = role;
+                changes.push('Role');
+            }
+            if (password) {
+                const salt = await bcrypt.genSalt(10);
+                userToUpdate.password = await bcrypt.hash(password, salt);
+                changes.push('Password');
+            }
+        } else if (isAdmin) {
+            // Admin editing OTHER user: Only Full Name allowed per request
+            if (full_name && full_name !== userToUpdate.full_name) {
+                userToUpdate.full_name = full_name;
+                changes.push('Full Name');
+            }
+            // Ignore other fields to prevent unauthorized privilege escalation or credential tampering
         }
-        if (role) userToUpdate.role = role;
 
-        // Update password if provided
-        if (password) {
-            const salt = await bcrypt.genSalt(10);
-            userToUpdate.password = await bcrypt.hash(password, salt);
+        if (changes.length > 0) {
+            await userToUpdate.save();
+
+            // Log activity
+            const logAction = isSelf ? 'Updated Profile' : 'Edited User Account';
+            const logDetails = `Modified: ${changes.join(', ')}`;
+            await logActivity(req, logAction, isSelf ? 'Self' : originalName, logDetails);
         }
-
-        await userToUpdate.save();
 
         res.json({
-            message: 'User updated successfully', user: {
+            message: 'User updated successfully',
+            user: {
                 id: userToUpdate._id,
                 username: userToUpdate.username,
                 full_name: userToUpdate.full_name,
@@ -312,7 +337,7 @@ app.delete('/api/users/:id', isAuthenticated, async (req, res) => {
             'session': { $regex: `"id":"${id}"` }
         });
 
-        await logActivity(req, 'Deleted User', deletedUser.full_name);
+        await logActivity(req, 'Deleted User', deletedUser.full_name, 'Account permanently removed from users collection');
 
         res.json({ message: 'User deleted successfully' });
     } catch (error) {
@@ -393,7 +418,7 @@ app.delete('/api/users/:id/sessions', isAuthenticated, async (req, res) => {
         // Note: User might still be in DB, just sessions gone.
         const kickedUser = await User.findById(id);
         const targetName = kickedUser ? kickedUser.full_name : `User ID: ${id}`;
-        await logActivity(req, 'Kicked User', targetName);
+        await logActivity(req, 'Kicked User', targetName, 'Administrative session termination');
 
     } catch (error) {
         console.error('Error kicking user:', error);
@@ -457,7 +482,7 @@ app.post('/api/strands', isAuthenticated, async (req, res) => {
         });
 
         await newStrand.save();
-        await logActivity(req, 'Added Strand', short);
+        await logActivity(req, 'Added Strand', short, `New strand '${short}' added to strand list`);
         res.status(201).json(newStrand);
     } catch (error) {
         console.error('Error creating strand:', error);
@@ -471,24 +496,47 @@ app.put('/api/strands/:id', isAuthenticated, async (req, res) => {
         const { id } = req.params;
         const { short, name, description, icon } = req.body;
 
+        const strandToUpdate = await Strand.findById(id);
+        if (!strandToUpdate) {
+            return res.status(404).json({ message: 'Strand not found' });
+        }
+
+        // Capture original values for logging
+        const originalShort = strandToUpdate.short;
+        const originalName = strandToUpdate.name;
+        const originalDescription = strandToUpdate.description || '';
+        const originalIcon = strandToUpdate.icon || 'BookOpen';
+
         const existingStrand = await Strand.findOne({ short: short.toUpperCase(), _id: { $ne: id } });
         if (existingStrand) {
             return res.status(400).json({ message: 'Strand with this acronym already exists' });
         }
 
-        const updatedStrand = await Strand.findByIdAndUpdate(
-            id,
-            { short, name, description, icon },
-            { new: true }
-        );
-
-        await logActivity(req, 'Edited Strand', short, 'Updated details');
-
-        if (!updatedStrand) {
-            return res.status(404).json({ message: 'Strand not found' });
+        let changes = [];
+        if (short && short.toUpperCase() !== originalShort) {
+            strandToUpdate.short = short;
+            changes.push(`Acronym (changed to '${short.toUpperCase()}')`);
+        }
+        if (name && name !== originalName) {
+            strandToUpdate.name = name;
+            changes.push('Full Name');
+        }
+        if (description !== undefined && description !== originalDescription) {
+            strandToUpdate.description = description;
+            changes.push('Description');
+        }
+        if (icon && icon !== originalIcon) {
+            strandToUpdate.icon = icon;
+            changes.push('Icon');
         }
 
-        res.json(updatedStrand);
+        await strandToUpdate.save();
+
+        if (changes.length > 0) {
+            await logActivity(req, 'Edited Strand', originalShort, `Edited: ${changes.join(', ')}`);
+        }
+
+        res.json(strandToUpdate);
     } catch (error) {
         console.error('Error updating strand:', error);
         res.status(500).json({ message: 'Error updating strand' });
@@ -506,7 +554,7 @@ app.delete('/api/strands/:id', isAuthenticated, async (req, res) => {
         }
 
         await Strand.findByIdAndDelete(id);
-        await logActivity(req, 'Deleted Strand', strand.short);
+        await logActivity(req, 'Deleted Strand', strand.short, `Strand '${strand.short}' removed from strands collection`);
         res.json({ message: 'Strand deleted successfully' });
     } catch (error) {
         console.error('Error deleting strand:', error);
@@ -737,7 +785,7 @@ app.post('/api/papers', isAuthenticated, upload.single('pdf'), async (req, res) 
         });
 
         await newPaper.save();
-        await logActivity(req, 'Added Paper', title);
+        await logActivity(req, 'Added Paper', title, 'New research paper added to library');
         res.status(201).json({ message: 'Paper added successfully', paper: newPaper });
 
     } catch (error) {
@@ -759,23 +807,84 @@ app.put('/api/papers/:id', isAuthenticated, upload.single('pdf'), async (req, re
             return res.status(404).json({ message: 'Paper not found' });
         }
 
+        // Helper to normalize author objects for comparison (strips _id and other noise)
+        const normalizeAuthors = (authorList) => {
+            if (!Array.isArray(authorList)) return "[]";
+            return JSON.stringify(
+                authorList.map(a => ({
+                    firstName: a.firstName || '',
+                    middleName: a.middleName || '',
+                    lastName: a.lastName || '',
+                    suffix: a.suffix || ''
+                }))
+            );
+        };
+
+        // Capture original values BEFORE updating for change tracking
+        const originalTitle = paper.title;
+        const originalAbstract = paper.abstract;
+        const originalAuthors = normalizeAuthors(paper.authors);
+        const originalKeywords = [...paper.keywords].sort().join(',');
+        const originalAdviser = paper.adviser;
+        const originalSchoolYear = paper.school_year;
+        const originalGradeSection = paper.grade_section;
+        const originalStrandId = paper.strand_id?.toString();
+        const originalIsFeatured = paper.is_featured;
+
+        // Determine changes for log - compare with original values
+        let changes = [];
+
         // Update fields if provided
-        if (title) paper.title = title;
-        if (abstract) paper.abstract = abstract;
-        if (keywords) paper.keywords = keywords.split(',').map(k => k.trim());
-        if (adviser) paper.adviser = adviser;
-        if (school_year) paper.school_year = school_year;
-        if (grade_section) paper.grade_section = grade_section;
-        if (is_featured !== undefined) paper.is_featured = is_featured === 'true';
+        if (title && title !== originalTitle) {
+            paper.title = title;
+            changes.push(`Title (changed to '${title}')`);
+        }
+        if (abstract !== undefined && abstract !== originalAbstract) {
+            paper.abstract = abstract;
+            changes.push('Abstract');
+        }
+        if (keywords !== undefined) {
+            const newKeywords = keywords.split(',').map(k => k.trim());
+            if (newKeywords.sort().join(',') !== originalKeywords) {
+                paper.keywords = newKeywords;
+                changes.push('Keywords');
+            }
+        }
+        if (adviser !== undefined && adviser !== originalAdviser) {
+            paper.adviser = adviser;
+            changes.push('Adviser');
+        }
+        if (school_year !== undefined && school_year !== originalSchoolYear) {
+            paper.school_year = school_year;
+            changes.push('School Year');
+        }
+        if (grade_section !== undefined && grade_section !== originalGradeSection) {
+            paper.grade_section = grade_section;
+            changes.push('Grade Section');
+        }
+        if (is_featured !== undefined) {
+            const featuredBool = is_featured === 'true' || is_featured === true;
+            if (featuredBool !== originalIsFeatured) {
+                paper.is_featured = featuredBool;
+                changes.push('Featured Status');
+            }
+        }
 
         if (strand) {
             const strandObj = await Strand.findOne({ short: strand });
-            if (strandObj) paper.strand_id = strandObj._id;
+            if (strandObj && strandObj._id.toString() !== originalStrandId) {
+                paper.strand_id = strandObj._id;
+                changes.push('Strand');
+            }
         }
 
         if (req.body.authors) {
             try {
-                paper.authors = JSON.parse(req.body.authors);
+                const newAuthors = JSON.parse(req.body.authors);
+                if (normalizeAuthors(newAuthors) !== originalAuthors) {
+                    paper.authors = newAuthors;
+                    changes.push('Authors');
+                }
             } catch (e) {
                 console.error('Error parsing authors update:', e);
             }
@@ -793,13 +902,10 @@ app.put('/api/papers/:id', isAuthenticated, upload.single('pdf'), async (req, re
                 }
             }
             paper.pdf_path = req.file.filename;
+            changes.push('Pdf');
         }
         // If title changed but NO new file, rename the existing file to match new title?
-        // This is complex because we might overwrite another file. 
-        // For safety, let's strictly rename ONLY if specific logic is requested, otherwise keep old filename or just rely on new uploads.
-        // User request: "rename the pdf using its title entered".
-        // If we rename logic here, we must check if file exists.
-        else if (title && title !== paper.title) {
+        else if (title && title !== originalTitle) {
             const oldPath = path.join(paperStoragePath, paper.pdf_path);
             if (fs.existsSync(oldPath)) {
                 const sanitizedTitle = title.replace(/[^a-zA-Z0-9 ]/g, "").trim();
@@ -815,14 +921,7 @@ app.put('/api/papers/:id', isAuthenticated, upload.single('pdf'), async (req, re
 
         await paper.save();
 
-        // Determine changes for log
-        let changes = [];
-        if (title !== paper.title) changes.push('Title');
-        if (abstract !== paper.abstract) changes.push('Abstract');
-        if (req.file) changes.push('File');
-        // ... simplistic check, can be expanded
-
-        await logActivity(req, 'Edited Paper', paper.title, changes.length > 0 ? `Changed: ${changes.join(', ')}` : 'Updated details');
+        await logActivity(req, 'Edited Paper', originalTitle, changes.length > 0 ? `Edited: ${changes.join(', ')}` : 'Updated details');
 
         res.json({ message: 'Paper updated successfully', paper });
 
@@ -851,7 +950,7 @@ app.delete('/api/papers/:id', isAuthenticated, permitIndex(['admin']), async (re
         }
 
         await ResearchPaper.findByIdAndDelete(id);
-        await logActivity(req, 'Deleted Paper', paper.title);
+        await logActivity(req, 'Deleted Paper', paper.title, 'Paper permanently removed from library');
         res.json({ message: 'Paper deleted successfully' });
     } catch (error) {
         console.error('Error deleting paper:', error);
@@ -867,6 +966,25 @@ app.get('/api/activity-logs', isAuthenticated, permitIndex(['admin']), async (re
     } catch (error) {
         console.error('Error fetching activity logs:', error);
         res.status(500).json({ message: 'Error fetching logs' });
+    }
+});
+
+// DELETE /api/activity-logs - Bulk delete activity logs (Admin Only)
+app.delete('/api/activity-logs', isAuthenticated, permitIndex(['admin']), async (req, res) => {
+    try {
+        const { ids } = req.body;
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ message: 'No log IDs provided' });
+        }
+
+        const result = await ActivityLog.deleteMany({ _id: { $in: ids } });
+
+        await logActivity(req, 'Deleted Logs', 'System', `Permanently removed ${result.deletedCount} activity logs`);
+
+        res.json({ message: 'Logs deleted successfully', deletedCount: result.deletedCount });
+    } catch (error) {
+        console.error('Error deleting activity logs:', error);
+        res.status(500).json({ message: 'Error deleting logs' });
     }
 });
 

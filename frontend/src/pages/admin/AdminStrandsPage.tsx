@@ -452,7 +452,7 @@ const AdminStrandsPage: React.FC = () => {
                         type="text"
                         value={formData.short}
                         onChange={(e) => setFormData({ ...formData, short: e.target.value })}
-                        placeholder="STEM"
+                        placeholder="e.g., STEM"
                         className="w-full px-3 py-2.5 rounded-xl bg-secondary/50 border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm font-bold transition-all"
                       />
                     </div>
@@ -463,7 +463,7 @@ const AdminStrandsPage: React.FC = () => {
                         type="text"
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        placeholder="Science, Technology, Engineering..."
+                        placeholder="e.g., Science, Technology, Engineering, and Mathematics"
                         className="w-full px-3 py-2.5 rounded-xl bg-secondary/50 border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm transition-all"
                       />
                     </div>
@@ -475,7 +475,7 @@ const AdminStrandsPage: React.FC = () => {
                       rows={3}
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder="Provide a brief overview of this strand's research focus..."
+                      placeholder="e.g., Provide a brief overview of this strand's research focus, such as its primary objectives and specialized fields."
                       className="w-full px-3 py-2.5 rounded-xl bg-secondary/50 border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm resize-none transition-all leading-relaxed"
                     />
                   </div>

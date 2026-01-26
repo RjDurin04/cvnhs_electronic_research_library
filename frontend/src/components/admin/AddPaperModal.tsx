@@ -191,21 +191,37 @@ export const AddPaperModal: React.FC<AddPaperModalProps> = ({ isOpen, onClose, o
   };
 
   const getAuthorDisplay = () => {
-    return authors
+    const formattedAuthors = authors
       .filter(a => a.lastName)
       .map(a => {
-        let name = a.lastName;
-        if (a.firstName) name += `, ${a.firstName.charAt(0)}.`;
-        if (a.middleName) name += ` ${a.middleName.charAt(0)}.`;
+        const initials = a.firstName
+          ? a.firstName.trim().split(/\s+/).map(n => `${n.charAt(0).toUpperCase()}.`).join(' ')
+          : '';
+        const middleInitial = a.middleName ? `${a.middleName.charAt(0).toUpperCase()}. ` : '';
+        let name = `${a.lastName}, ${initials}${middleInitial}`.trim();
         if (a.suffix) name += ` ${a.suffix}`;
         return name;
-      })
-      .join(', ');
+      });
+
+    if (formattedAuthors.length === 0) return '';
+    if (formattedAuthors.length === 1) return formattedAuthors[0];
+    if (formattedAuthors.length === 2) return `${formattedAuthors[0]} & ${formattedAuthors[1]}`;
+
+    const lastAuthor = formattedAuthors.pop();
+    return `${formattedAuthors.join(', ')}, & ${lastAuthor}`;
   };
 
   const getCitation = () => {
     const authorDisplay = getAuthorDisplay();
-    return `${authorDisplay || '[Authors]'}. (${formData.schoolYear || '[Year]'}). ${formData.title || '[Title]'}. Adviser: ${formData.adviser || '[Adviser]'}. ${formData.gradeSection || '[Section]'}, Catubig Valley National High School.`;
+    const citationYear = formData.schoolYear.includes(' - ')
+      ? formData.schoolYear.split(' - ')[1].trim()
+      : formData.schoolYear;
+
+    const sentenceCaseTitle = formData.title
+      ? formData.title.charAt(0).toUpperCase() + formData.title.slice(1)
+      : '[Title]';
+
+    return `${authorDisplay || '[Authors]'}. (${citationYear || '[Year]'}). ${sentenceCaseTitle} [Unpublished manuscript]. Catubig Valley National High School.`;
   };
 
   const canProceed = () => {
@@ -235,50 +251,40 @@ export const AddPaperModal: React.FC<AddPaperModalProps> = ({ isOpen, onClose, o
 
     try {
       if (onSubmit) {
-        // Transform authors to expected format if needed, but the current format is fine for our JSON.parse on backend
-        // We pass the raw data, let parent handle FormData conversion
-        await onSubmit({
+        // Parent handle submission and Toast
+        const submitPromise = onSubmit({
           ...formData,
           authors: authors.filter(a => a.lastName).map(a => ({
             firstName: a.firstName,
             middleName: a.middleName,
             lastName: a.lastName,
             suffix: a.suffix
-          })), // Send object array, not string array, so backend key names match
+          })),
           pdfFile,
         });
-      }
 
-      setSubmitSuccess(true);
-
-      // Auto close after success message
-      setTimeout(() => {
+        // Close immediately to prevent double submissions/interaction
         onClose();
-        // Reset state
-        setCurrentStep(1);
-        setSubmitSuccess(false);
-        setPdfFile(null);
-        setUploadProgress(0);
-        setFormData({
-          title: '',
-          abstract: '',
-          keywords: '',
-          adviser: '',
-          strand: '',
-          schoolYear: '',
-          gradeSection: '',
-          isFeatured: false,
-        });
-        setAuthors([{ id: generateId(), firstName: '', middleName: '', lastName: '', suffix: '' }]);
-      }, 2000);
 
+        await submitPromise;
+      }
     } catch (error) {
       console.error("Submission failed", error);
-      // Ideally show error state here
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  // Add cleanup effect to reset state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      // Delay reset slightly to allow exit animations to finish
+      const timeout = setTimeout(() => {
+        resetForm();
+      }, 300);
+      return () => clearTimeout(timeout);
+    }
+  }, [isOpen]);
 
   const resetAndClose = () => {
     setCurrentStep(1);
@@ -314,11 +320,11 @@ export const AddPaperModal: React.FC<AddPaperModalProps> = ({ isOpen, onClose, o
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-3xl bg-card border border-border shadow-2xl"
+          className="relative w-full max-w-3xl max-h-[90vh] overflow-hidden rounded-3xl bg-card border border-border shadow-2xl flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header with gradient */}
-          <div className="relative px-8 py-6 border-b border-border bg-gradient-to-r from-primary/5 via-transparent to-primary/5">
+          <div className="relative px-6 py-4 border-b border-border bg-gradient-to-r from-primary/5 via-transparent to-primary/5">
             {/* Decorative elements */}
             <div className="absolute top-0 left-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
             <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl translate-x-1/2 -translate-y-1/2" />
@@ -339,7 +345,7 @@ export const AddPaperModal: React.FC<AddPaperModalProps> = ({ isOpen, onClose, o
             </div>
 
             {/* Step indicator */}
-            <div className="relative mt-6 flex items-center justify-between">
+            <div className="relative mt-4 flex items-center justify-between">
               {STEPS.map((step, idx) => (
                 <React.Fragment key={step.id}>
                   <motion.div
@@ -350,7 +356,7 @@ export const AddPaperModal: React.FC<AddPaperModalProps> = ({ isOpen, onClose, o
                     }}
                   >
                     <motion.div
-                      className={`relative w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 ${currentStep > step.id
+                      className={`relative w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-300 ${currentStep > step.id
                         ? 'bg-primary text-primary-foreground'
                         : currentStep === step.id
                           ? 'bg-primary/10 text-primary ring-2 ring-primary/30'
@@ -391,8 +397,8 @@ export const AddPaperModal: React.FC<AddPaperModalProps> = ({ isOpen, onClose, o
             </div>
           </div>
 
-          {/* Content */}
-          <div className="p-8 overflow-y-auto max-h-[calc(90vh-280px)]">
+          {/* Content area - fills the space and scrolls */}
+          <div className="flex-1 overflow-y-auto min-h-0 p-6">
             <AnimatePresence mode="wait">
               {/* Step 1: PDF Upload */}
               {currentStep === 1 && (
@@ -523,9 +529,9 @@ export const AddPaperModal: React.FC<AddPaperModalProps> = ({ isOpen, onClose, o
                   className="space-y-6"
                 >
                   {/* Title */}
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm font-medium text-foreground">
-                      <BookOpen className="w-4 h-4 text-primary" />
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-2 text-xs font-semibold text-foreground uppercase tracking-tight">
+                      <BookOpen className="w-3.5 h-3.5 text-primary" />
                       Research Title
                     </label>
                     <input
@@ -533,16 +539,16 @@ export const AddPaperModal: React.FC<AddPaperModalProps> = ({ isOpen, onClose, o
                       name="title"
                       value={formData.title}
                       onChange={handleInputChange}
-                      placeholder="Enter the complete title of your research paper"
-                      className="w-full px-4 py-3 rounded-xl bg-secondary border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                      placeholder="e.g., Impact of AI on Modern Education"
+                      className="w-full px-4 py-2.5 rounded-xl bg-secondary border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-sm"
                     />
                   </div>
 
                   {/* Abstract */}
-                  <div className="space-y-2">
-                    <label className="flex items-center justify-between text-sm font-medium text-foreground">
+                  <div className="space-y-1.5">
+                    <label className="flex items-center justify-between text-xs font-semibold text-foreground uppercase tracking-tight">
                       <span className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-primary" />
+                        <FileText className="w-3.5 h-3.5 text-primary" />
                         Abstract
                       </span>
                     </label>
@@ -550,67 +556,70 @@ export const AddPaperModal: React.FC<AddPaperModalProps> = ({ isOpen, onClose, o
                       name="abstract"
                       value={formData.abstract}
                       onChange={handleInputChange}
-                      placeholder="Write a comprehensive abstract describing your research methodology, findings, and conclusions..."
-                      rows={6}
-                      className="w-full px-4 py-3 rounded-xl bg-secondary border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all resize-none"
+                      placeholder="e.g., This study explores the correlation between..."
+                      rows={4}
+                      className="w-full px-4 py-2.5 rounded-xl bg-secondary border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all resize-none text-sm"
                     />
                   </div>
 
-                  {/* Keywords */}
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm font-medium text-foreground">
-                      <Hash className="w-4 h-4 text-primary" />
-                      Keywords
-                    </label>
-                    <input
-                      type="text"
-                      name="keywords"
-                      value={formData.keywords}
-                      onChange={handleInputChange}
-                      placeholder="Enter keywords separated by commas (e.g., machine learning, education, data analysis)"
-                      className="w-full px-4 py-3 rounded-xl bg-secondary border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                    />
-                  </div>
+                  {/* Grid for Keywords and Adviser */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Keywords */}
+                    <div className="space-y-1.5">
+                      <label className="flex items-center gap-2 text-xs font-semibold text-foreground uppercase tracking-tight">
+                        <Hash className="w-3.5 h-3.5 text-primary" />
+                        Keywords
+                      </label>
+                      <input
+                        type="text"
+                        name="keywords"
+                        value={formData.keywords}
+                        onChange={handleInputChange}
+                        placeholder="e.g., machine learning, education, data analysis"
+                        className="w-full px-4 py-2.5 rounded-xl bg-secondary border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-sm"
+                      />
+                    </div>
 
-                  {/* Adviser */}
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm font-medium text-foreground">
-                      <User className="w-4 h-4 text-primary" />
-                      Research Adviser
-                    </label>
-                    <input
-                      type="text"
-                      name="adviser"
-                      value={formData.adviser}
-                      onChange={handleInputChange}
-                      placeholder="Dr. Juan dela Cruz"
-                      className="w-full px-4 py-3 rounded-xl bg-secondary border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                    />
+                    {/* Adviser */}
+                    <div className="space-y-1.5">
+                      <label className="flex items-center gap-2 text-xs font-semibold text-foreground uppercase tracking-tight">
+                        <User className="w-3.5 h-3.5 text-primary" />
+                        Research Adviser
+                      </label>
+                      <input
+                        type="text"
+                        name="adviser"
+                        value={formData.adviser}
+                        onChange={handleInputChange}
+                        placeholder="e.g., Dr. Juan dela Cruz"
+                        className="w-full px-4 py-2.5 rounded-xl bg-secondary border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-sm"
+                      />
+                    </div>
                   </div>
 
                   {/* Grid for Strand, Year, Section */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <label className="flex items-center gap-2 text-sm font-medium text-foreground">
-                        <GraduationCap className="w-4 h-4 text-primary" />
+                    <div className="space-y-1.5">
+                      <label className="flex items-center gap-2 text-xs font-semibold text-foreground uppercase tracking-tight">
+                        <GraduationCap className="w-3.5 h-3.5 text-primary" />
                         Strand
                       </label>
                       <select
                         name="strand"
                         value={formData.strand}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 rounded-xl bg-secondary border border-border focus:border-primary outline-none transition-all"
+                        className="w-full px-4 py-2.5 rounded-xl bg-secondary border border-border focus:border-primary outline-none transition-all text-sm"
                       >
                         <option value="">Select strand</option>
                         {strands.map((s: any) => (
-                          <option key={s._id || s.id} value={s.short}>{s.short} - {s.name}</option>
+                          <option key={s._id || s.id} value={s.short}>{s.short}</option>
                         ))}
                       </select>
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="flex items-center gap-2 text-sm font-medium text-foreground">
-                        <Calendar className="w-4 h-4 text-primary" />
+                    <div className="space-y-1.5">
+                      <label className="flex items-center gap-2 text-xs font-semibold text-foreground uppercase tracking-tight">
+                        <Calendar className="w-3.5 h-3.5 text-primary" />
                         School Year
                       </label>
                       <div className="flex items-center gap-2">
@@ -621,18 +630,18 @@ export const AddPaperModal: React.FC<AddPaperModalProps> = ({ isOpen, onClose, o
                           onChange={handleInputChange}
                           placeholder="2023"
                           maxLength={4}
-                          className="w-24 px-4 py-3 rounded-xl bg-secondary border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-center"
+                          className="w-20 px-3 py-2.5 rounded-xl bg-secondary border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-center text-sm font-medium"
                         />
-                        <span className="text-lg font-medium text-muted-foreground">-</span>
-                        <div className="flex-1 px-4 py-3 rounded-xl bg-secondary/50 border border-border/50 text-muted-foreground font-medium">
+                        <span className="text-muted-foreground">-</span>
+                        <div className="flex-1 px-3 py-2.5 rounded-xl bg-secondary/50 border border-border/50 text-muted-foreground font-medium text-sm text-center">
                           {formData.schoolYear.includes(' - ') ? formData.schoolYear.split(' - ')[1] : '####'}
                         </div>
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="flex items-center gap-2 text-sm font-medium text-foreground">
-                        <Users className="w-4 h-4 text-primary" />
+                    <div className="space-y-1.5">
+                      <label className="flex items-center gap-2 text-xs font-semibold text-foreground uppercase tracking-tight">
+                        <Users className="w-3.5 h-3.5 text-primary" />
                         Grade & Section
                       </label>
                       <input
@@ -640,14 +649,14 @@ export const AddPaperModal: React.FC<AddPaperModalProps> = ({ isOpen, onClose, o
                         name="gradeSection"
                         value={formData.gradeSection}
                         onChange={handleInputChange}
-                        placeholder="Grade 12 - Einstein"
-                        className="w-full px-4 py-3 rounded-xl bg-secondary border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                        placeholder="e.g., Grade 12 - Einstein"
+                        className="w-full px-4 py-2.5 rounded-xl bg-secondary border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-sm"
                       />
                     </div>
                   </div>
 
                   {/* Featured toggle */}
-                  <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 border border-border">
+                  <div className="flex items-center gap-4 p-3 rounded-xl bg-muted/30 border border-border">
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
                         type="checkbox"
@@ -689,69 +698,69 @@ export const AddPaperModal: React.FC<AddPaperModalProps> = ({ isOpen, onClose, o
                     </button>
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {authors.map((author, idx) => (
                       <motion.div
                         key={author.id}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className="p-5 rounded-2xl bg-muted/30 border border-border space-y-4"
+                        className="p-3.5 rounded-2xl bg-muted/30 border border-border space-y-3"
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-semibold text-foreground flex items-center gap-2">
-                            <User className="w-4 h-4 text-primary" />
+                          <span className="text-[10px] font-bold text-foreground flex items-center gap-2 uppercase tracking-wider">
+                            <User className="w-3 h-3 text-primary" />
                             Author {idx + 1}
                           </span>
                           {authors.length > 1 && (
                             <button
                               onClick={() => removeAuthor(author.id)}
-                              className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                              className="p-1 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </div>
 
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
                           <div>
-                            <label className="text-xs text-muted-foreground">First Name *</label>
+                            <label className="text-[10px] uppercase font-bold text-muted-foreground/70 mb-1 block">First Name *</label>
                             <input
                               type="text"
                               value={author.firstName}
                               onChange={(e) => updateAuthor(author.id, 'firstName', e.target.value)}
-                              placeholder="Juan"
-                              className="w-full mt-1 px-3 py-2.5 rounded-xl bg-secondary border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm transition-all"
+                              placeholder="e.g., Juan"
+                              className="w-full px-3 py-2 rounded-xl bg-secondary border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-xs transition-all"
                             />
                           </div>
                           <div>
-                            <label className="text-xs text-muted-foreground">Middle Name</label>
+                            <label className="text-[10px] uppercase font-bold text-muted-foreground/70 mb-1 block">Middle Name</label>
                             <input
                               type="text"
                               value={author.middleName}
                               onChange={(e) => updateAuthor(author.id, 'middleName', e.target.value)}
-                              placeholder="Santos"
-                              className="w-full mt-1 px-3 py-2.5 rounded-xl bg-secondary border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm transition-all"
+                              placeholder="e.g., Santos"
+                              className="w-full px-3 py-2 rounded-xl bg-secondary border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-xs transition-all"
                             />
                           </div>
                           <div>
-                            <label className="text-xs text-muted-foreground">Last Name *</label>
+                            <label className="text-[10px] uppercase font-bold text-muted-foreground/70 mb-1 block">Last Name *</label>
                             <input
                               type="text"
                               value={author.lastName}
                               onChange={(e) => updateAuthor(author.id, 'lastName', e.target.value)}
-                              placeholder="dela Cruz"
-                              className="w-full mt-1 px-3 py-2.5 rounded-xl bg-secondary border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm transition-all"
+                              placeholder="e.g., dela Cruz"
+                              className="w-full px-3 py-2 rounded-xl bg-secondary border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-xs transition-all"
                             />
                           </div>
                           <div>
-                            <label className="text-xs text-muted-foreground">Suffix</label>
+                            <label className="text-[10px] uppercase font-bold text-muted-foreground/70 mb-1 block">Suffix</label>
                             <input
                               type="text"
                               value={author.suffix}
                               onChange={(e) => updateAuthor(author.id, 'suffix', e.target.value)}
-                              placeholder="Jr., III, etc."
-                              className="w-full mt-1 px-3 py-2.5 rounded-xl bg-secondary border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm transition-all"
+                              placeholder="e.g., Jr., III"
+                              className="w-full px-3 py-2 rounded-xl bg-secondary border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-xs transition-all"
                             />
                           </div>
                         </div>
@@ -882,7 +891,7 @@ export const AddPaperModal: React.FC<AddPaperModalProps> = ({ isOpen, onClose, o
 
           {/* Footer with navigation */}
           {!submitSuccess && (
-            <div className="px-8 py-5 border-t border-border bg-muted/20 flex items-center justify-between">
+            <div className="px-8 py-4 border-t border-border bg-muted/20 flex items-center justify-between shrink-0">
               <button
                 onClick={handleBack}
                 disabled={currentStep === 1}

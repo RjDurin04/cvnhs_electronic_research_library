@@ -143,6 +143,13 @@
   ::-webkit-scrollbar-thumb:hover {
     @apply bg-muted-foreground/40;
   }
+
+  /* Improved Placeholder Visibility */
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-muted-foreground/40 transition-opacity;
+    opacity: 1; /* Override default browser opacity if necessary */
+  }
 }
 
 @layer utilities {

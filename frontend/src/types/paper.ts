@@ -1,7 +1,8 @@
 export interface Author {
     firstName: string;
     lastName: string;
-    middleInitial?: string;
+    middleName?: string;
+    suffix?: string;
 }
 
 export interface ResearchPaper {
