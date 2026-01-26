@@ -79,6 +79,7 @@ const App = () => {
                 <Route path="strands" element={<AdminStrandsPage />} />
                 <Route path="users" element={<AdminUsersPage />} />
                 <Route path="activity-logs" element={<AdminActivityLogsPage />} />
+                <Route path="profile" element={<ProfileSettingsPage />} />
               </Route>
             </Route>
 
