@@ -31,7 +31,7 @@ const AdminLoginPage: React.FC = () => {
   useEffect(() => {
     if (isAuthenticated && currentUser) {
       // Redirect based on role
-      const redirectPath = currentUser.role === 'admin' ? '/admin' : '/home';
+      const redirectPath = (currentUser.role === 'admin' || currentUser.role === 'editor') ? '/admin' : '/home';
       navigate(redirectPath);
     }
   }, [isAuthenticated, currentUser, navigate]);
@@ -61,7 +61,7 @@ const AdminLoginPage: React.FC = () => {
         setTimeout(() => {
           // Use a fresh check or just rely on the navigate
           const user = useAdminStore.getState().currentUser;
-          const redirectPath = user?.role === 'admin' ? '/admin' : '/home';
+          const redirectPath = (user?.role === 'admin' || user?.role === 'editor') ? '/admin' : '/home';
           navigate(redirectPath);
         }, 800);
       } else {

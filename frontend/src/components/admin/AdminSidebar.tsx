@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   BookOpen,
+  ClipboardList,
 } from 'lucide-react';
 import { useAdminStore } from '@/store/adminStore';
 
@@ -18,11 +19,12 @@ const navItems = [
   { href: '/admin/papers', icon: FileText, label: 'Research Papers' },
   { href: '/admin/strands', icon: Layers, label: 'Strands' },
   { href: '/admin/users', icon: Users, label: 'Users' },
+  { href: '/admin/activity-logs', icon: ClipboardList, label: 'Activity Logs' },
 ];
 
 export const AdminSidebar: React.FC = () => {
   const location = useLocation();
-  const { isSidebarCollapsed, toggleSidebar } = useAdminStore();
+  const { isSidebarCollapsed, toggleSidebar, currentUser } = useAdminStore();
 
   return (
     <motion.aside
@@ -59,6 +61,21 @@ export const AdminSidebar: React.FC = () => {
       {/* Navigation */}
       <nav className="flex-1 py-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
+          // Show only Dashboard and Papers for Editors
+          if (currentUser?.role === 'editor' && !['Dashboard', 'Research Papers'].includes(item.label)) {
+            return null;
+          }
+
+          // Hide sensitive items from viewers as well if they somehow get here
+          if (currentUser?.role === 'viewer' && item.label !== 'Dashboard') {
+            return null;
+          }
+
+          // Hide Activity Logs from everyone except Admin
+          if (item.label === 'Activity Logs' && currentUser?.role !== 'admin') {
+            return null;
+          }
+
           const isActive = item.exact
             ? location.pathname === item.href
             : location.pathname.startsWith(item.href);

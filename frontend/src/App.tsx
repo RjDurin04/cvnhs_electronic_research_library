@@ -14,6 +14,7 @@ import AllPapersPage from "./pages/AllPapersPage";
 import PaperDetailPage from "./pages/PaperDetailPage";
 import StrandsPage from "./pages/StrandsPage";
 import AboutPage from "./pages/AboutPage";
+import ProfileSettingsPage from "./pages/ProfileSettingsPage";
 import NotFound from "./pages/NotFound";
 
 // Admin pages
@@ -22,6 +23,7 @@ import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 import AdminPapersPage from "./pages/admin/AdminPapersPage";
 import AdminStrandsPage from "./pages/admin/AdminStrandsPage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
+import AdminActivityLogsPage from "./pages/admin/AdminActivityLogsPage";
 
 import { useEffect } from "react";
 import { useAdminStore } from "@/store/adminStore";
@@ -63,6 +65,7 @@ const App = () => {
                 <Route path="/papers/:id" element={<PaperDetailPage />} />
                 <Route path="/strands" element={<StrandsPage />} />
                 <Route path="/about" element={<AboutPage />} />
+                <Route path="/profile" element={<ProfileSettingsPage />} />
               </Route>
             </Route>
 
@@ -75,6 +78,7 @@ const App = () => {
                 <Route path="papers" element={<AdminPapersPage />} />
                 <Route path="strands" element={<AdminStrandsPage />} />
                 <Route path="users" element={<AdminUsersPage />} />
+                <Route path="activity-logs" element={<AdminActivityLogsPage />} />
               </Route>
             </Route>
 

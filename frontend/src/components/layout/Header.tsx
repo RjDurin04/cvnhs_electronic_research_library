@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Moon, Sun, Menu, X, BookOpen, LogOut, LogIn } from 'lucide-react';
+import { Search, Moon, Sun, Menu, X, BookOpen, LogOut, LogIn, UserCog } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { useAdminStore } from '@/store/adminStore';
 import { useNavigate } from 'react-router-dom';
@@ -91,14 +91,24 @@ export const Header: React.FC = () => {
             </button>
 
             {isAuthenticated ? (
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-destructive hover:bg-destructive/10 transition-all duration-200"
-                aria-label="Logout"
-              >
-                <LogOut className="w-4 h-4" />
-                <span className="text-sm font-bold hidden sm:block">Sign Out</span>
-              </button>
+              <>
+                <Link
+                  to="/profile"
+                  className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all duration-200 group"
+                  aria-label="Profile Settings"
+                >
+                  <UserCog className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                </Link>
+
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-destructive hover:bg-destructive/10 transition-all duration-200"
+                  aria-label="Logout"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span className="text-sm font-bold hidden sm:block">Sign Out</span>
+                </button>
+              </>
             ) : (
               <Link
                 to="/"
@@ -158,13 +168,23 @@ export const Header: React.FC = () => {
                 className="pt-2 mt-2 border-t border-border/40"
               >
                 {isAuthenticated ? (
-                  <button
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-destructive hover:bg-destructive/10 transition-colors"
-                  >
-                    <LogOut className="w-5 h-5" />
-                    <span className="text-base font-bold">Sign Out</span>
-                  </button>
+                  <div className="space-y-1">
+                    <Link
+                      to="/profile"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl text-foreground hover:bg-primary/10 transition-colors"
+                    >
+                      <UserCog className="w-5 h-5" />
+                      <span className="text-base font-bold">Profile Settings</span>
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-destructive hover:bg-destructive/10 transition-colors text-left"
+                    >
+                      <LogOut className="w-5 h-5" />
+                      <span className="text-base font-bold">Sign Out</span>
+                    </button>
+                  </div>
                 ) : (
                   <Link
                     to="/"

@@ -55,7 +55,7 @@ interface Strand {
 }
 
 const AdminPapersPage: React.FC = () => {
-  const { addToast } = useAdminStore();
+  const { addToast, currentUser } = useAdminStore();
   const [data, setData] = useState<Paper[]>([]);
   const [strands, setStrands] = useState<Strand[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -297,12 +297,15 @@ const AdminPapersPage: React.FC = () => {
             >
               <Pencil className="w-4 h-4" />
             </button>
-            <button
-              onClick={() => setPaperToDelete(row.original)}
-              className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            {currentUser?.role === 'admin' && ( // Only Admins can delete
+              <button
+                onClick={() => setPaperToDelete(row.original)}
+                className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                title="Delete Paper"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
           </div>
         ),
       },

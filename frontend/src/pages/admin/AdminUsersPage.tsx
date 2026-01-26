@@ -31,7 +31,7 @@ interface UserData {
   _id: string;
   full_name: string;
   username: string;
-  role: 'admin' | 'viewer';
+  role: 'admin' | 'viewer' | 'editor';
   createdAt: string;
   // password is not returned
 }
@@ -39,11 +39,13 @@ interface UserData {
 const roleIcons = {
   admin: ShieldCheck,
   viewer: Eye,
+  editor: Pencil, // or another icon like Edit/FileText
 };
 
 const roleColors = {
   admin: 'bg-primary/10 text-primary',
   viewer: 'bg-muted text-muted-foreground',
+  editor: 'bg-indigo-500/10 text-indigo-500',
 };
 
 const AdminUsersPage: React.FC = () => {
@@ -73,7 +75,7 @@ const AdminUsersPage: React.FC = () => {
     fullName: '',
     username: '',
     password: '',
-    role: 'viewer' as 'admin' | 'viewer',
+    role: 'viewer' as 'admin' | 'viewer' | 'editor',
     currentAdminPassword: '', // For verifying admin identity on edit
   });
 
@@ -350,13 +352,15 @@ const AdminUsersPage: React.FC = () => {
           const isActive = activeUserIds.includes(row.original._id);
           return (
             <div className="flex items-center gap-1">
-              <button
-                onClick={() => openEditModal(row.original)}
-                className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                title="Edit User"
-              >
-                <Pencil className="w-4 h-4" />
-              </button>
+              {isCurrentUser && (
+                <button
+                  onClick={() => openEditModal(row.original)}
+                  className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                  title="Edit Your Account"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+              )}
               {isActive && !isCurrentUser && (
                 <button
                   onClick={() => openKickModal(row.original)}
@@ -421,9 +425,9 @@ const AdminUsersPage: React.FC = () => {
       </div>
 
       {/* Role Summary */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Simple summary based on fetched data */}
-        {(['admin', 'viewer'] as const).map((role) => {
+        {(['admin', 'editor', 'viewer'] as const).map((role) => {
           const count = data.filter((u) => u.role === role).length;
           const Icon = roleIcons[role];
           return (
@@ -611,6 +615,7 @@ const AdminUsersPage: React.FC = () => {
                             className="w-full px-4 py-2 rounded-xl bg-secondary border border-border focus:border-primary outline-none text-sm transition-colors"
                           >
                             <option value="viewer">Viewer</option>
+                            <option value="editor">Editor</option>
                             <option value="admin">Admin</option>
                           </select>
                         </div>

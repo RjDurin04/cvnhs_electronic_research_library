@@ -6,6 +6,7 @@ const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const MongoStore = require('connect-mongo').default || require('connect-mongo');
 const User = require('./models/User');
+const ActivityLog = require('./models/ActivityLog');
 
 dotenv.config();
 
@@ -44,7 +45,7 @@ mongoose.connect(process.env.MONGO_URI)
 
         // Seed Admin User
         try {
-            const adminExists = await User.findOne({ username: 'admin' });
+            const adminExists = await User.findOne({ role: 'admin' });
             if (!adminExists) {
                 console.log('Admin user not found. Creating default admin...');
                 const salt = await bcrypt.genSalt(10);
@@ -93,6 +94,17 @@ app.post('/api/auth/login', async (req, res) => {
             role: user.role
         };
 
+        // Log Login Activity (using immediate save since session won't be ready in helper without req)
+        try {
+            const log = new ActivityLog({
+                performedBy: user.full_name,
+                actionType: 'Login',
+                targetItem: 'System',
+                changeDetails: 'User logged in'
+            });
+            await log.save();
+        } catch (e) { console.error('Login log error', e); }
+
         res.json({
             message: 'Login successful',
             user: req.session.user
@@ -104,8 +116,23 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 app.post('/api/auth/logout', (req, res) => {
-    req.session.destroy((err) => {
+    const userName = req.session.user ? req.session.user.full_name : 'Unknown';
+    req.session.destroy(async (err) => {
         if (err) return res.status(500).json({ message: 'Error logging out' });
+
+        // Log Logout manually since session is destroyed
+        if (userName !== 'Unknown') {
+            try {
+                const log = new ActivityLog({
+                    performedBy: userName,
+                    actionType: 'Logout',
+                    targetItem: 'System',
+                    changeDetails: 'User logged out'
+                });
+                await log.save();
+            } catch (e) { console.error('Logout log error', e); }
+        }
+
         res.clearCookie('connect.sid');
         res.json({ message: 'Logged out successfully' });
     });
@@ -126,6 +153,34 @@ const isAuthenticated = (req, res, next) => {
     } else {
         res.status(401).json({ message: 'Unauthorized' });
     }
+};
+
+// Helper function to log activity
+const logActivity = async (req, actionType, targetItem, changeDetails = '') => {
+    try {
+        if (!req.session.user) return; // Should not happen if authenticated
+
+        const log = new ActivityLog({
+            performedBy: req.session.user.full_name,
+            actionType,
+            targetItem,
+            changeDetails
+        });
+        await log.save();
+    } catch (error) {
+        console.error('Error logging activity:', error);
+    }
+};
+
+// Middleware to restrict access based on roles
+const permitIndex = (allowedRoles) => {
+    return (req, res, next) => {
+        if (req.session.user && allowedRoles.includes(req.session.user.role)) {
+            next();
+        } else {
+            res.status(403).json({ message: 'Forbidden: Insufficient privileges' });
+        }
+    };
 };
 
 // --- User Management Routes ---
@@ -167,6 +222,8 @@ app.post('/api/users', isAuthenticated, async (req, res) => {
         const userObj = newUser.toObject();
         delete userObj.password;
 
+        await logActivity(req, 'Added User', full_name, `Role: ${role || 'viewer'}`);
+
         res.status(201).json(userObj);
     } catch (error) {
         console.error('Error creating user:', error);
@@ -190,6 +247,12 @@ app.put('/api/users/:id', isAuthenticated, async (req, res) => {
             if (!isMatch) {
                 return res.status(403).json({ message: 'Incorrect current password' });
             }
+        }
+
+        // RBAC Check: Users can only edit their OWN account.
+        // Admins CANNOT edit other users, they can only delete/kick.
+        if (req.session.user.id !== id) {
+            return res.status(403).json({ message: 'You can only edit your own profile.' });
         }
 
         const userToUpdate = await User.findById(id);
@@ -249,6 +312,8 @@ app.delete('/api/users/:id', isAuthenticated, async (req, res) => {
             'session': { $regex: `"id":"${id}"` }
         });
 
+        await logActivity(req, 'Deleted User', deletedUser.full_name);
+
         res.json({ message: 'User deleted successfully' });
     } catch (error) {
         console.error('Error deleting user:', error);
@@ -289,10 +354,8 @@ app.delete('/api/users/:id/sessions', isAuthenticated, async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Prevent kicking yourself
-        if (id === req.session.user.id) {
-            return res.status(400).json({ message: 'Cannot kick yourself' });
-        }
+        // Note: We ALLOW kicking yourself now, to support "Log out everywhere" feature.
+        // if (id === req.session.user.id) { ... }
 
         const sessionsCollection = mongoose.connection.db.collection('sessions');
 
@@ -325,6 +388,13 @@ app.delete('/api/users/:id/sessions', isAuthenticated, async (req, res) => {
         }
 
         res.json({ message: 'User kicked successfully', deletedCount });
+
+        // Find user name for logging if possible, otherwise just ID
+        // Note: User might still be in DB, just sessions gone.
+        const kickedUser = await User.findById(id);
+        const targetName = kickedUser ? kickedUser.full_name : `User ID: ${id}`;
+        await logActivity(req, 'Kicked User', targetName);
+
     } catch (error) {
         console.error('Error kicking user:', error);
         res.status(500).json({ message: 'Error kicking user' });
@@ -387,6 +457,7 @@ app.post('/api/strands', isAuthenticated, async (req, res) => {
         });
 
         await newStrand.save();
+        await logActivity(req, 'Added Strand', short);
         res.status(201).json(newStrand);
     } catch (error) {
         console.error('Error creating strand:', error);
@@ -411,6 +482,8 @@ app.put('/api/strands/:id', isAuthenticated, async (req, res) => {
             { new: true }
         );
 
+        await logActivity(req, 'Edited Strand', short, 'Updated details');
+
         if (!updatedStrand) {
             return res.status(404).json({ message: 'Strand not found' });
         }
@@ -433,6 +506,7 @@ app.delete('/api/strands/:id', isAuthenticated, async (req, res) => {
         }
 
         await Strand.findByIdAndDelete(id);
+        await logActivity(req, 'Deleted Strand', strand.short);
         res.json({ message: 'Strand deleted successfully' });
     } catch (error) {
         console.error('Error deleting strand:', error);
@@ -663,6 +737,7 @@ app.post('/api/papers', isAuthenticated, upload.single('pdf'), async (req, res) 
         });
 
         await newPaper.save();
+        await logActivity(req, 'Added Paper', title);
         res.status(201).json({ message: 'Paper added successfully', paper: newPaper });
 
     } catch (error) {
@@ -739,6 +814,16 @@ app.put('/api/papers/:id', isAuthenticated, upload.single('pdf'), async (req, re
         }
 
         await paper.save();
+
+        // Determine changes for log
+        let changes = [];
+        if (title !== paper.title) changes.push('Title');
+        if (abstract !== paper.abstract) changes.push('Abstract');
+        if (req.file) changes.push('File');
+        // ... simplistic check, can be expanded
+
+        await logActivity(req, 'Edited Paper', paper.title, changes.length > 0 ? `Changed: ${changes.join(', ')}` : 'Updated details');
+
         res.json({ message: 'Paper updated successfully', paper });
 
     } catch (error) {
@@ -749,7 +834,8 @@ app.put('/api/papers/:id', isAuthenticated, upload.single('pdf'), async (req, re
 });
 
 // DELETE /api/papers/:id - Delete paper and file
-app.delete('/api/papers/:id', isAuthenticated, async (req, res) => {
+// RESTRICTED: Admin only. Editors cannot delete.
+app.delete('/api/papers/:id', isAuthenticated, permitIndex(['admin']), async (req, res) => {
     try {
         const { id } = req.params;
         const paper = await ResearchPaper.findById(id);
@@ -765,10 +851,22 @@ app.delete('/api/papers/:id', isAuthenticated, async (req, res) => {
         }
 
         await ResearchPaper.findByIdAndDelete(id);
+        await logActivity(req, 'Deleted Paper', paper.title);
         res.json({ message: 'Paper deleted successfully' });
     } catch (error) {
         console.error('Error deleting paper:', error);
         res.status(500).json({ message: 'Error deleting paper' });
+    }
+});
+
+// GET /api/activity-logs - Get all activity logs (Admin Only)
+app.get('/api/activity-logs', isAuthenticated, permitIndex(['admin']), async (req, res) => {
+    try {
+        const logs = await ActivityLog.find().sort({ timestamp: -1 }).limit(100);
+        res.json(logs);
+    } catch (error) {
+        console.error('Error fetching activity logs:', error);
+        res.status(500).json({ message: 'Error fetching logs' });
     }
 });
 
