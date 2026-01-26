@@ -119,6 +119,28 @@ Now, even if you restart the computer, the website will start by itself.
 
 ---
 
+## ❌ UNDO Phase 5: How to Stop Automatic Startup
+If you decide you **don't** want the server to start automatically anymore, you can run these commands from **ANY** directory:
+
+1.  **Stop the Auto-Loader**:
+    ```bash
+    pm2-startup uninstall
+    ```
+
+2.  **Remove the App from PM2**:
+    ```bash
+    pm2 delete "cvnhs-library"
+    pm2 save
+    ```
+
+3.  **Kill PM2 (Optional)**:
+    If you want to completely stop everything:
+    ```bash
+    pm2 kill
+    ```
+
+---
+
 ## ⚪ PHASE 6: Accessing the Website
 Users on the same WiFi/Network can now access the site at:
 `http://[SERVER_IP_ADDRESS]:5000`
