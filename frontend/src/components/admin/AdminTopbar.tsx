@@ -16,6 +16,7 @@ const pageTitles: Record<string, string> = {
   '/admin/papers': 'Research Papers',
   '/admin/strands': 'Strands',
   '/admin/users': 'Users',
+  '/admin/profile': 'Settings',
 };
 
 export const AdminTopbar: React.FC = () => {
@@ -100,6 +101,17 @@ export const AdminTopbar: React.FC = () => {
                   <p className="font-medium text-foreground">{currentUser?.name}</p>
                 </div>
                 <div className="p-2">
+                  <Link
+                    to="/admin/profile"
+                    onClick={() => setShowUserMenu(false)}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-foreground hover:bg-secondary transition-colors mb-1"
+                  >
+                    <User className="w-4 h-4" />
+                    Profile
+                  </Link>
+
+                  <div className="h-px bg-border my-1" />
+
                   <button
                     onClick={logout}
                     className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors"

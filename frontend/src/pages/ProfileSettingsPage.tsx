@@ -135,14 +135,14 @@ const ProfileSettingsPage: React.FC = () => {
                                         </label>
                                         <input
                                             required
-                                            disabled={currentUser?.role === 'viewer'}
+                                            disabled={currentUser?.role !== 'admin'}
                                             type="text"
                                             value={formData.fullName}
                                             onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                                            className={`w-full px-4 py-3 rounded-xl bg-secondary border outline-none transition-all ${currentUser?.role === 'viewer' ? 'cursor-not-allowed opacity-70 border-border' : 'border-border focus:border-primary focus:ring-2 focus:ring-primary/20'}`}
+                                            className={`w-full px-4 py-3 rounded-xl bg-secondary border outline-none transition-all ${currentUser?.role !== 'admin' ? 'cursor-not-allowed opacity-70 border-border' : 'border-border focus:border-primary focus:ring-2 focus:ring-primary/20'}`}
                                         />
-                                        {currentUser?.role === 'viewer' && (
-                                            <p className="text-[10px] text-muted-foreground italic">Note: Only Administrators or Editors can authorize name changes.</p>
+                                        {currentUser?.role !== 'admin' && (
+                                            <p className="text-[10px] text-muted-foreground italic">Note: Only Administrators can authorize name changes.</p>
                                         )}
                                     </div>
 

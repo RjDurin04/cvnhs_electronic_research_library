@@ -4,8 +4,9 @@ A modern, full-stack web application for managing and sharing student research p
 
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript)
-![Node.js](https://img.shields.io/badge/Node.js-Express-339933?logo=nodedotjs)
+![Express](https://img.shields.io/badge/Express-5.2-000000?logo=express)
 ![MongoDB](https://img.shields.io/badge/MongoDB-Database-47A248?logo=mongodb)
+![Vite](https://img.shields.io/badge/Vite-5.4-646CFF?logo=vite)
 
 ---
 
@@ -13,10 +14,12 @@ A modern, full-stack web application for managing and sharing student research p
 
 - 📄 **Research Paper Management** – Upload, organize, and download PDF research papers
 - 🏷️ **Strand Organization** – Categorize papers by academic strand (STEM, ABM, HUMSS, etc.)
-- 👥 **User Management** – Role-based access (Admin/Viewer) with secure authentication
+- 👥 **User Management** – Role-based access (Admin/Editor/Viewer) with secure authentication
 - 📊 **Analytics Dashboard** – Track downloads, view statistics, and monitor activity
 - 🔍 **Search & Filter** – Find papers by title, author, keywords, or strand
-- 🌙 **Dark Mode** – Toggle between light and dark themes
+- 📜 **Activity Logs** – Full audit trail of system actions (admin only)
+- 👤 **Profile Settings** – Update username, password, and logout everywhere
+- 🌙 **Dark Mode** – Beautiful dark theme enabled by default
 
 ---
 
@@ -38,7 +41,7 @@ cd cvnhs_electronic_research_library
 cd backend
 npm install
 cp .env.example .env  # Configure your environment variables
-node server.js
+npm run dev
 
 # Frontend setup (new terminal)
 cd frontend
@@ -61,9 +64,11 @@ npm run dev
 | Layer | Technology |
 |-------|------------|
 | Frontend | React 18, TypeScript, Tailwind CSS, shadcn/ui |
-| Backend | Express.js, Node.js |
-| Database | MongoDB with Mongoose |
-| State | Zustand |
+| Build | Vite 5, SWC |
+| State | Zustand, TanStack Query |
+| Animation | Framer Motion |
+| Backend | Express.js 5, Node.js |
+| Database | MongoDB with Mongoose 9 |
 | Auth | express-session, bcrypt |
 
 ---
@@ -72,18 +77,30 @@ npm run dev
 
 ```
 ├── backend/
-│   ├── models/          # MongoDB schemas
+│   ├── models/          # MongoDB schemas (User, Strand, Paper, ActivityLog)
 │   ├── server.js        # Express API server
 │   └── .env             # Environment config
 ├── frontend/
 │   ├── src/
-│   │   ├── pages/       # Route components
-│   │   ├── components/  # UI components
-│   │   └── store/       # State management
+│   │   ├── pages/       # Route components (8 public + 6 admin)
+│   │   ├── components/  # UI components (70+ components)
+│   │   ├── store/       # Zustand state management
+│   │   └── types/       # TypeScript definitions
 │   └── package.json
 ├── DOCUMENTATION.md     # Full technical documentation
-└── DEPLOYMENT_GUIDE.md  # Production deployment guide
+├── DEPLOYMENT_GUIDE.md  # Production deployment guide
+└── README.md            # This file
 ```
+
+---
+
+## 👥 User Roles
+
+| Role | Permissions |
+|------|-------------|
+| **Admin** | Full access: manage users, papers, strands, view activity logs |
+| **Editor** | Content management with limited admin access |
+| **Viewer** | Browse and download papers only |
 
 ---
 
@@ -114,9 +131,16 @@ For detailed documentation including API reference, database schema, and archite
 |-----------|-----------------|
 | Hero section with search and featured papers | Statistics, charts, and activity tracking |
 
+| Login Page | Activity Logs |
+|------------|---------------|
+| Animated background with floating inputs | Full audit trail of system actions |
+
 ---
 
 ## 📝 License
 
 This project was developed for **Catubig Valley National High School** as an internal research archive system.
 
+---
+
+*Last updated: January 2026*

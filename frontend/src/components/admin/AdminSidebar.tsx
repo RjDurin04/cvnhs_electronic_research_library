@@ -20,6 +20,7 @@ const navItems = [
   { href: '/admin/strands', icon: Layers, label: 'Strands' },
   { href: '/admin/users', icon: Users, label: 'Users' },
   { href: '/admin/activity-logs', icon: ClipboardList, label: 'Activity Logs' },
+  { href: '/admin/profile', icon: Settings, label: 'Settings' },
 ];
 
 export const AdminSidebar: React.FC = () => {

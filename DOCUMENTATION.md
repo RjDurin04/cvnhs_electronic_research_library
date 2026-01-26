@@ -12,9 +12,10 @@ The **CVNHS Electronic Research Library** is a web-based application designed to
 
 | Role | What They Can Do |
 |------|------------------|
-| **Students** | Browse and download research papers for reference and inspiration |
+| **Students/Viewers** | Browse and download research papers for reference and inspiration |
+| **Editors** | Access papers plus edit their own profile and some content |
 | **Teachers** | Access student work, track submissions, and guide research |
-| **Administrators** | Manage users, organize strands, upload papers, and view analytics |
+| **Administrators** | Full system access: manage users, strands, papers, view activity logs, and analytics |
 
 ---
 
@@ -30,43 +31,64 @@ flowchart TB
         D --> E[Download PDF]
     end
     
+    subgraph Profile["👤 User Profile"]
+        P1[View Profile] --> P2[Change Username/Password]
+        P2 --> P3[Logout Everywhere]
+    end
+    
     subgraph Admin["⚙️ Admin Panel (For Administrators)"]
         F[Dashboard] --> G[View Statistics]
         F --> H[Manage Papers]
         F --> I[Manage Strands]
         F --> J[Manage Users]
-        H --> K[Upload/Edit/Delete Papers]
-        I --> L[Add/Edit Academic Strands]
-        J --> M[Create/Manage Accounts]
+        F --> K[View Activity Logs]
+        H --> L[Upload/Edit/Delete Papers]
+        I --> M[Add/Edit Academic Strands]
+        J --> N[Create/Manage Accounts]
+        K --> O[Monitor System Activity]
     end
     
     Login[Login Page] --> Public
+    Login --> Profile
     Login --> Admin
 ```
 
 ### Core Features
 
 #### 1. 📖 Research Paper Management
-- **Upload** research papers as PDF files
+- **Upload** research papers as PDF files (max 50MB)
 - **Organize** papers by academic strand (STEM, ABM, HUMSS, etc.)
 - **Track** download counts and statistics
 - **Feature** outstanding papers on the homepage
 
 #### 2. 🏷️ Strand Organization
 - Create and manage academic strands/tracks
-- Each strand has a name, description, and icon
+- Each strand has a short code, full name, description, and icon
 - Papers are categorized under their respective strands
 
 #### 3. 👥 User Management
-- **Admins**: Full access to all features
-- **Viewers**: Can browse and download papers
-- Session-based login with automatic session expiry
+- **Admins**: Full access to all features including activity logs
+- **Editors**: Can manage content with limited administrative access
+- **Viewers**: Can browse and download papers only
+- Session-based login with automatic session expiry (15 minutes)
 
 #### 4. 📊 Analytics Dashboard
 - Total papers in the library
-- Download statistics
-- Activity tracking
-- Visual charts for school year distribution
+- Download statistics by strand
+- School year distribution charts
+- Recent uploads tracking
+- Registered users count
+
+#### 5. 📜 Activity Logging
+- Tracks all system actions (logins, uploads, edits, deletions)
+- Displays who performed each action
+- Records timestamps and change details
+- Auto-deletes logs older than 1 year
+
+#### 6. 👤 Profile Settings
+- Users can update their own username and password
+- Requires current password for security verification
+- "Logout Everywhere" feature to terminate all active sessions
 
 ---
 
@@ -77,11 +99,11 @@ flowchart TB
 ```mermaid
 flowchart LR
     subgraph Client["🖥️ User's Browser"]
-        React["React Application"]
+        React["React 18 + TypeScript"]
     end
     
     subgraph Server["🖧 Server Computer"]
-        Express["Express.js Backend"]
+        Express["Express.js 5 Backend"]
         MongoDB[("MongoDB Database")]
         PDFs["📁 PDF Storage"]
     end
@@ -96,11 +118,15 @@ flowchart LR
 | Layer | Technology | Purpose |
 |-------|------------|---------|
 | **Frontend** | React 18 + TypeScript | User interface |
+| **Build Tool** | Vite 5 | Fast development & production builds |
 | **Styling** | Tailwind CSS + shadcn/ui | Modern, responsive design |
+| **Animations** | Framer Motion | Smooth UI transitions |
 | **State** | Zustand | Application state management |
-| **Backend** | Express.js (Node.js) | API server |
-| **Database** | MongoDB | Data storage |
+| **Data Fetching** | TanStack Query | Server state & caching |
+| **Backend** | Express.js 5 (Node.js) | API server |
+| **Database** | MongoDB + Mongoose 9 | Data storage |
 | **Authentication** | express-session + bcrypt | Secure login |
+| **File Upload** | Multer 2 | PDF document handling |
 | **File Storage** | Local filesystem (APPDATA) | PDF documents |
 
 ---
@@ -111,10 +137,11 @@ flowchart LR
 cvnhs_electronic_research_library/
 ├── 📁 backend/                  # Server-side code
 │   ├── models/                  # Database schemas
-│   │   ├── User.js              # User accounts
+│   │   ├── User.js              # User accounts (admin/editor/viewer)
 │   │   ├── Strand.js            # Academic strands
-│   │   └── ResearchPaper.js     # Research papers
-│   ├── server.js                # Main API server (860 lines)
+│   │   ├── ResearchPaper.js     # Research papers
+│   │   └── ActivityLog.js       # System activity logs
+│   ├── server.js                # Main API server (1100+ lines)
 │   ├── .env                     # Configuration secrets
 │   └── package.json             # Dependencies
 │
@@ -126,23 +153,34 @@ cvnhs_electronic_research_library/
 │   │   │   ├── PaperDetailPage.tsx
 │   │   │   ├── StrandsPage.tsx
 │   │   │   ├── AboutPage.tsx
+│   │   │   ├── ProfileSettingsPage.tsx  # Account settings
+│   │   │   ├── NotFound.tsx
 │   │   │   └── admin/           # Admin panel pages
+│   │   │       ├── AdminLoginPage.tsx
 │   │   │       ├── AdminDashboardPage.tsx
 │   │   │       ├── AdminPapersPage.tsx
 │   │   │       ├── AdminStrandsPage.tsx
-│   │   │       └── AdminUsersPage.tsx
+│   │   │       ├── AdminUsersPage.tsx
+│   │   │       └── AdminActivityLogsPage.tsx
 │   │   ├── components/          # Reusable UI components
 │   │   │   ├── ui/              # 49 shadcn components
-│   │   │   ├── home/            # Homepage sections
+│   │   │   ├── home/            # Homepage sections (Hero, Featured, Strands)
 │   │   │   ├── admin/           # Admin UI elements
-│   │   │   └── layout/          # Header, Footer, etc.
+│   │   │   ├── auth/            # Login animations & protected routes
+│   │   │   ├── layout/          # Header, Footer, etc.
+│   │   │   └── papers/          # Paper display components
 │   │   ├── store/               # State management
 │   │   │   ├── adminStore.ts    # Auth & admin state
 │   │   │   └── useStore.ts      # General app state
 │   │   └── types/               # TypeScript definitions
+│   │       ├── paper.ts         # Research paper types
+│   │       ├── strand.ts        # Strand types
+│   │       └── dashboard.ts     # Dashboard stat types
 │   └── package.json
 │
-└── DEPLOYMENT_GUIDE.md          # Setup instructions
+├── DOCUMENTATION.md             # This file
+├── README.md                    # Quick start guide
+└── DEPLOYMENT_GUIDE.md          # Production deployment steps
 ```
 
 ---
@@ -154,6 +192,7 @@ cvnhs_electronic_research_library/
 ```mermaid
 erDiagram
     User ||--o{ Session : has
+    User ||--o{ ActivityLog : performs
     Strand ||--o{ ResearchPaper : contains
     
     User {
@@ -161,7 +200,7 @@ erDiagram
         string username "Unique login name"
         string password "Hashed with bcrypt"
         string full_name "Display name"
-        string role "admin or viewer"
+        string role "admin, editor, or viewer"
         date createdAt
     }
     
@@ -189,6 +228,15 @@ erDiagram
         string pdf_path "Filename in storage"
         date createdAt
     }
+    
+    ActivityLog {
+        ObjectId _id
+        date timestamp
+        string performedBy "User's full name"
+        string actionType "e.g., Added Paper"
+        string targetItem "Paper title or user name"
+        string changeDetails "What was modified"
+    }
 ```
 
 ---
@@ -209,9 +257,10 @@ erDiagram
 |--------|----------|-------------|
 | `GET` | `/api/users` | List all users |
 | `POST` | `/api/users` | Create new user |
-| `PUT` | `/api/users/:id` | Update user |
+| `PUT` | `/api/users/:id` | Update user (self or admin) |
 | `DELETE` | `/api/users/:id` | Delete user |
-| `DELETE` | `/api/users/:id/sessions` | Kick user (end their sessions) |
+| `GET` | `/api/users/sessions` | Get users with active sessions |
+| `DELETE` | `/api/users/:id/sessions` | Kick user (terminate all sessions) |
 
 ### Research Papers
 
@@ -220,7 +269,7 @@ erDiagram
 | `GET` | `/api/papers` | List all papers |
 | `GET` | `/api/papers/:id` | Get single paper details |
 | `POST` | `/api/papers` | Upload new paper (with PDF) |
-| `PUT` | `/api/papers/:id` | Update paper |
+| `PUT` | `/api/papers/:id` | Update paper (optional new PDF) |
 | `DELETE` | `/api/papers/:id` | Delete paper and file |
 | `GET` | `/api/papers/view/:id` | Stream PDF in browser |
 | `GET` | `/api/papers/download/:id` | Download PDF (increments counter) |
@@ -233,6 +282,13 @@ erDiagram
 | `POST` | `/api/strands` | Create new strand |
 | `PUT` | `/api/strands/:id` | Update strand |
 | `DELETE` | `/api/strands/:id` | Delete strand |
+
+### Activity Logs
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/activity-logs` | Get activity logs (Admin only, last 100) |
+| `DELETE` | `/api/activity-logs` | Clear all activity logs (Admin only) |
 
 ### Statistics
 
@@ -254,16 +310,18 @@ erDiagram
 | **Paper Details** | `/papers/:id` | View paper info and download PDF |
 | **Strands** | `/strands` | Browse papers by academic strand |
 | **About** | `/about` | Information about the library |
+| **Profile** | `/profile` | Account settings (username, password) |
 
 ### Admin Pages (Require Admin Role)
 
 | Page | URL | Purpose |
 |------|-----|---------|
-| **Login** | `/` or `/admin/login` | Admin authentication |
-| **Dashboard** | `/admin` | Statistics and overview |
-| **Papers** | `/admin/papers` | Manage research papers |
+| **Login** | `/` or `/admin/login` | Authentication with animated UI |
+| **Dashboard** | `/admin` | Statistics, charts, and recent activity |
+| **Papers** | `/admin/papers` | Manage research papers (CRUD) |
 | **Strands** | `/admin/strands` | Manage academic strands |
-| **Users** | `/admin/users` | Manage user accounts |
+| **Users** | `/admin/users` | Manage user accounts & sessions |
+| **Activity Logs** | `/admin/activity-logs` | View system activity history |
 
 ---
 
@@ -275,8 +333,13 @@ erDiagram
    - 15-minute expiry with rolling refresh
    - HTTP-only cookies
 3. **Route Protection**: All sensitive routes require authentication
-4. **Input Validation**: File type checking (PDF only), size limits (50MB)
-5. **Self-Protection**: Users cannot delete their own accounts or kick themselves
+4. **Role-Based Access**: 
+   - Activity logs are admin-only
+   - Viewers cannot edit their own name
+   - Editors have intermediate permissions
+5. **Input Validation**: File type checking (PDF only), size limits (50MB)
+6. **Self-Protection**: Users cannot delete their own accounts
+7. **Logout Everywhere**: Users can terminate all their active sessions
 
 ---
 
@@ -290,7 +353,7 @@ erDiagram
 # 2. Backend Setup
 cd backend
 npm install
-node server.js
+npm run dev   # Uses nodemon for auto-reload
 
 # 3. Frontend Setup (new terminal)
 cd frontend
@@ -327,8 +390,17 @@ The frontend uses **shadcn/ui**, providing 49+ pre-built components:
 - Modals (Dialogs)
 - Tables with sorting
 - Charts (via Recharts)
-- Toasts for notifications
+- Toasts/Sonner for notifications
+- Command palette
+- Dropdowns, Popovers, Tooltips
 - And many more...
+
+### Special UI Features
+
+- **Animated Login**: Background particles, floating inputs, success confetti
+- **Dark Mode**: Defaults to dark theme, toggle available
+- **Framer Motion**: Smooth page transitions and micro-animations
+- **Responsive Grid**: Adapts from mobile to desktop
 
 ---
 
@@ -338,9 +410,9 @@ The application is fully responsive:
 
 | Device | Support |
 |--------|---------|
-| Desktop | ✅ Full layout |
-| Tablet | ✅ Adapted grid |
-| Mobile | ✅ Compact navigation |
+| Desktop | ✅ Full layout with sidebar |
+| Tablet | ✅ Adapted grid, collapsible sidebar |
+| Mobile | ✅ Compact navigation, stacked layouts |
 
 ---
 
@@ -365,16 +437,20 @@ SESSION_SECRET=your_secret_key_here
 
 | Feature | Status |
 |---------|--------|
-| User Authentication | ✅ Implemented |
-| Role-Based Access | ✅ Admin/Viewer |
-| Paper CRUD Operations | ✅ Full support |
-| PDF Upload/Download | ✅ Working |
+| User Authentication | ✅ Session-based with auto-expiry |
+| Role-Based Access | ✅ Admin/Editor/Viewer |
+| Paper CRUD Operations | ✅ Full support with PDF |
+| PDF Upload/Download | ✅ Streaming & download tracking |
 | Search Functionality | ✅ By title, author, keyword |
 | Download Tracking | ✅ Automatic counting |
-| Strand Management | ✅ Full CRUD |
-| Admin Dashboard | ✅ With charts |
-| Session Management | ✅ With kick feature |
-| Dark Mode | ✅ Toggle available |
+| Strand Management | ✅ Full CRUD with icons |
+| Admin Dashboard | ✅ Charts & statistics |
+| Session Management | ✅ View active users, kick feature |
+| Activity Logging | ✅ Full audit trail |
+| Profile Settings | ✅ Self-service account updates |
+| Logout Everywhere | ✅ Terminate all sessions |
+| Dark Mode | ✅ Enabled by default |
+| Responsive Design | ✅ Mobile-friendly |
 
 ---
 
@@ -384,4 +460,4 @@ This system was developed for **Catubig Valley National High School** as an elec
 
 ---
 
-*Documentation generated on January 2026*
+*Documentation updated on January 2026*
