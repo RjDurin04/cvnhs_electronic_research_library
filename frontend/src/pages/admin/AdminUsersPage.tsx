@@ -352,8 +352,9 @@ const AdminUsersPage: React.FC = () => {
           const isAdmin = currentUser?.role === 'admin';
           const isActive = activeUserIds.includes(row.original._id);
 
-          // Allow edit if it's the current user OR if the current user is an admin
-          const canEdit = isCurrentUser || isAdmin;
+          // Allow edit if it's NOT an admin account
+          // Admins should manage their own accounts via ProfileSettingsPage
+          const canEdit = row.original.role !== 'admin';
 
           return (
             <div className="flex items-center gap-1">

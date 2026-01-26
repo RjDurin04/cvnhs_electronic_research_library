@@ -20,7 +20,7 @@ interface AdminState {
   // Auth
   isAuthenticated: boolean;
   currentUser: User | null;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (username: string, password: string) => Promise<string | true>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
 
@@ -49,7 +49,7 @@ export const useAdminStore = create<AdminState>()(
       // Auth
       isAuthenticated: false,
       currentUser: null,
-      login: async (username: string, password: string) => {
+      login: async (username: string, password: string): Promise<string | true> => {
         try {
           const response = await fetch('/api/auth/login', {
             method: 'POST',
@@ -60,8 +60,9 @@ export const useAdminStore = create<AdminState>()(
             body: JSON.stringify({ username, password }),
           });
 
+          const data = await response.json();
+
           if (response.ok) {
-            const data = await response.json();
             set({
               isAuthenticated: true,
               currentUser: {
@@ -73,10 +74,14 @@ export const useAdminStore = create<AdminState>()(
             });
             return true;
           } else {
-            return false;
+            if (data.errors && Array.isArray(data.errors)) {
+              return data.errors.map((err: any) => err.msg).join('. ');
+            }
+            return data.message || 'Invalid credentials';
           }
         } catch (error) {
-          return false;
+          console.error('Login error:', error);
+          return 'Server is unreachable. Please check if the backend is running.';
         }
       },
       logout: async () => {
@@ -105,6 +110,20 @@ export const useAdminStore = create<AdminState>()(
           } else {
             // If server says unauthorized but we think we're logged in, it's a kick/expiry
             if (get().isAuthenticated) {
+              const prevUser = get().currentUser;
+
+              // Report expiry to backend log
+              if (prevUser) {
+                fetch('/api/auth/report-expiry', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    username: prevUser.username,
+                    full_name: prevUser.name
+                  })
+                }).catch(e => console.error('Failed to report expiry', e));
+              }
+
               set({ isAuthenticated: false, currentUser: null });
               window.location.href = '/'; // Force redirect to login page
               return;

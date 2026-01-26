@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, User, Lock, Check, Loader2, ArrowRight } from 'lucide-react';
+import { BookOpen, User, Lock, Check, Loader2, ArrowRight, AlertTriangle } from 'lucide-react';
 import { useAdminStore } from '@/store/adminStore';
 import { AnimatedBackground } from '@/components/auth/AnimatedBackground';
 import { FloatingInput } from '@/components/auth/FloatingInput';
@@ -18,6 +18,7 @@ const AdminLoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loginState, setLoginState] = useState<LoginState>('idle');
+  const [loginError, setLoginError] = useState<string | null>(null);
   const [showCard, setShowCard] = useState(false);
 
   // Force light mode on login page (ensuring it doesn't default to dark)
@@ -41,39 +42,46 @@ const AdminLoginPage: React.FC = () => {
 
     if (!username || !password) {
       setLoginState('error');
-      addToast({ type: 'error', title: 'Missing credentials', message: 'Please enter both username and password' });
+      const msg = 'Please enter both username and password';
+      setLoginError(msg);
+      addToast({ type: 'error', title: 'Missing credentials', message: msg });
       return;
     }
 
     setLoginState('loading');
+    setLoginError(null);
 
     try {
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 1200));
+      const result = await login(username, password);
 
-      const success = await login(username, password);
-
-      if (success) {
+      if (result === true) {
         setLoginState('success');
         addToast({ type: 'success', title: 'Welcome back!', message: 'Successfully authenticated' });
 
         // Delay redirect to show success animation
         setTimeout(() => {
-          // Use a fresh check or just rely on the navigate
           const user = useAdminStore.getState().currentUser;
           const redirectPath = (user?.role === 'admin' || user?.role === 'editor') ? '/admin' : '/home';
           navigate(redirectPath);
         }, 800);
       } else {
         setLoginState('error');
-        addToast({ type: 'error', title: 'Authentication failed', message: 'Invalid username or password' });
+        const msg = typeof result === 'string' ? result : 'Invalid username or password';
+        setLoginError(msg);
+        addToast({
+          type: 'error',
+          title: 'Authentication failed',
+          message: msg
+        });
 
-        // Reset to idle after error animation
+        // Reset state after animation, but keep error text
         setTimeout(() => setLoginState('idle'), 600);
       }
     } catch {
       setLoginState('error');
-      addToast({ type: 'error', title: 'Network error', message: 'Please try again' });
+      const msg = 'Unable to reach the server. Please check if the backend is running.';
+      setLoginError(msg);
+      addToast({ type: 'error', title: 'Network error', message: msg });
       setTimeout(() => setLoginState('idle'), 600);
     }
   };
@@ -277,7 +285,10 @@ const AdminLoginPage: React.FC = () => {
                       label="Username"
                       type="text"
                       value={username}
-                      onChange={setUsername}
+                      onChange={(val) => {
+                        setUsername(val);
+                        if (loginError) setLoginError(null);
+                      }}
                       error={loginState === 'error'}
                       icon={<User className="w-4 h-4" />}
                       autoComplete="username"
@@ -288,11 +299,31 @@ const AdminLoginPage: React.FC = () => {
                       label="Password"
                       type="password"
                       value={password}
-                      onChange={setPassword}
+                      onChange={(val) => {
+                        setPassword(val);
+                        if (loginError) setLoginError(null);
+                      }}
                       error={loginState === 'error'}
                       icon={<Lock className="w-4 h-4" />}
                       autoComplete="current-password"
                     />
+
+                    {/* Error Feedback Display */}
+                    <AnimatePresence>
+                      {loginError && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 flex items-start gap-2.5"
+                        >
+                          <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
+                          <p className="text-[11px] font-bold text-destructive leading-tight tracking-tight">
+                            {loginError}
+                          </p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
                     {/* Submit Button - Compact & Modern */}
                     <motion.button
