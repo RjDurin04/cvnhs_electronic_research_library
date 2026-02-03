@@ -376,17 +376,19 @@ const AdminUsersPage: React.FC = () => {
                   <LogOut className="w-4 h-4" />
                 </button>
               )}
-              <button
-                disabled={isCurrentUser}
-                onClick={() => openDeleteModal(row.original)}
-                className={`p-2 rounded-lg transition-colors ${isCurrentUser
-                  ? 'text-muted-foreground/30 cursor-not-allowed'
-                  : 'hover:bg-destructive/10 text-muted-foreground hover:text-destructive'
-                  }`}
-                title={isCurrentUser ? "Cannot delete yourself" : "Delete User"}
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              {row.original.role !== 'admin' && (
+                <button
+                  disabled={isCurrentUser}
+                  onClick={() => openDeleteModal(row.original)}
+                  className={`p-2 rounded-lg transition-colors ${isCurrentUser
+                    ? 'text-muted-foreground/30 cursor-not-allowed'
+                    : 'hover:bg-destructive/10 text-muted-foreground hover:text-destructive'
+                    }`}
+                  title={isCurrentUser ? "Cannot delete yourself" : "Delete User"}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
             </div>
           );
         },
