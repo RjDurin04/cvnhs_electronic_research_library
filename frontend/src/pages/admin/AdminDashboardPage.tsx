@@ -99,7 +99,7 @@ const AdminDashboardPage: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-3">
+    <div className="h-full flex flex-col space-y-3">
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {stats.map((stat, i) => (
@@ -128,14 +128,14 @@ const AdminDashboardPage: React.FC = () => {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Recent Archive Uploads (Left Column) */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="lg:col-span-4 p-3 rounded-lg bg-card border border-border flex flex-col min-h-[420px]"
+          className="lg:col-span-4 p-3 rounded-lg bg-card border border-border flex flex-col h-full overflow-hidden"
         >
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-3 shrink-0">
             <h2 className="text-xs font-black text-foreground uppercase tracking-widest">Recent Uploads</h2>
             <Link
               to="/admin/papers"
@@ -144,17 +144,17 @@ const AdminDashboardPage: React.FC = () => {
               All
             </Link>
           </div>
-          <div className="space-y-2 flex-1 overflow-hidden">
+          <div className="space-y-2 flex-1 overflow-y-auto pr-1 custom-scrollbar">
             {data.recentUploads.length === 0 ? (
               <div className="flex items-center justify-center h-full text-muted-foreground text-xs">No recent uploads</div>
             ) : (
               data.recentUploads.map((paper) => (
-                <div key={paper.id} className="p-2 rounded-md bg-muted/30 border border-border/50 hover:border-primary/30 transition-colors group">
+                <div key={paper.id} className="p-2 rounded-md bg-muted/30 border border-border/50 hover:border-primary/30 transition-colors group shrink-0">
                   <div className="flex justify-between items-start gap-2 mb-1">
                     <p className="text-[11px] font-bold text-foreground line-clamp-2 leading-tight group-hover:text-primary transition-colors">
                       {paper.title}
                     </p>
-                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[9px] font-black">
+                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[9px] font-black shrink-0">
                       <Download className="w-2.5 h-2.5" />
                       {paper.download_count}
                     </div>
@@ -174,68 +174,72 @@ const AdminDashboardPage: React.FC = () => {
         </motion.div>
 
         {/* Charts Container */}
-        <div className="lg:col-span-8 flex flex-col gap-4">
+        <div className="lg:col-span-8 flex flex-col gap-4 h-full min-h-0">
           {/* Papers by School Year */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="p-3 rounded-lg bg-card border border-border"
+            className="p-3 rounded-lg bg-card border border-border flex-1 flex flex-col min-h-0"
           >
-            <h3 className="text-xs font-black text-foreground mb-2 uppercase tracking-wider">Papers by School Year</h3>
-            <ResponsiveContainer width="100%" height={180}>
-              <AreaChart data={data.schoolYearDistribution}>
-                <defs>
-                  <linearGradient id="schoolYearGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.2} />
-                    <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                <XAxis dataKey="year" tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" axisLine={false} tickLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
-                    fontSize: '10px'
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="count"
-                  stroke="hsl(var(--primary))"
-                  name="Papers"
-                  strokeWidth={2}
-                  fill="url(#schoolYearGradient)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            <h3 className="text-xs font-black text-foreground mb-2 uppercase tracking-wider shrink-0">Papers by School Year</h3>
+            <div className="flex-1 min-h-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={data.schoolYearDistribution}>
+                  <defs>
+                    <linearGradient id="schoolYearGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.2} />
+                      <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                  <XAxis dataKey="year" tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" axisLine={false} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                      fontSize: '10px'
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="count"
+                    stroke="hsl(var(--primary))"
+                    name="Papers"
+                    strokeWidth={2}
+                    fill="url(#schoolYearGradient)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </motion.div>
 
           {/* Downloads by Strand */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="p-3 rounded-lg bg-card border border-border"
+            className="p-3 rounded-lg bg-card border border-border flex-1 flex flex-col min-h-0"
           >
-            <h3 className="text-xs font-black text-foreground mb-2 uppercase tracking-wider">Distribution by Strand</h3>
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={data.downloadsByStrand} layout="vertical" margin={{ left: -10, right: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
-                <XAxis type="number" hide />
-                <YAxis dataKey="strand" type="category" tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" width={45} axisLine={false} tickLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
-                    fontSize: '10px'
-                  }}
-                />
-                <Bar dataKey="downloads" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={12} />
-              </BarChart>
-            </ResponsiveContainer>
+            <h3 className="text-xs font-black text-foreground mb-2 uppercase tracking-wider shrink-0">Distribution by Strand</h3>
+            <div className="flex-1 min-h-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.downloadsByStrand} layout="vertical" margin={{ left: -10, right: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
+                  <XAxis type="number" hide />
+                  <YAxis dataKey="strand" type="category" tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" width={45} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                      fontSize: '10px'
+                    }}
+                  />
+                  <Bar dataKey="downloads" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={12} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </motion.div>
         </div>
       </div>
