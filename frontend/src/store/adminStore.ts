@@ -43,6 +43,16 @@ interface AdminState {
   setCommandOpen: (open: boolean) => void;
 }
 
+const getDeviceId = () => {
+  if (typeof window === 'undefined') return 'server';
+  let deviceId = localStorage.getItem('cvnhs_auth_device_id');
+  if (!deviceId) {
+    deviceId = `dev_${Math.random().toString(36).substring(2, 10)}${Date.now().toString(36)}`;
+    localStorage.setItem('cvnhs_auth_device_id', deviceId);
+  }
+  return deviceId;
+};
+
 export const useAdminStore = create<AdminState>()(
   persist(
     (set, get) => ({
@@ -51,13 +61,14 @@ export const useAdminStore = create<AdminState>()(
       currentUser: null,
       login: async (username: string, password: string): Promise<string | true> => {
         try {
+          const deviceId = getDeviceId();
           const response = await fetch('/api/auth/login', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             credentials: 'include', // Required for cookies/sessions
-            body: JSON.stringify({ username, password }),
+            body: JSON.stringify({ username, password, deviceId }),
           });
 
           const data = await response.json();

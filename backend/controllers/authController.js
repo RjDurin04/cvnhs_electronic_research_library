@@ -1,20 +1,70 @@
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const ActivityLog = require('../models/ActivityLog');
+const LoginAttempt = require('../models/LoginAttempt');
 
 const login = async (req, res) => {
-    const { username, password } = req.body;
+    const { username, password, deviceId } = req.body;
+
+    if (!deviceId) {
+        return res.status(400).json({ message: 'Device ID is required' });
+    }
 
     try {
-        const user = await User.findOne({ username });
+        const normalizedUsername = username.toLowerCase();
+
+        // Check for existing login attempts
+        let attemptRecord = await LoginAttempt.findOne({
+            deviceId,
+            username: normalizedUsername
+        });
+
+        const now = new Date();
+
+        if (attemptRecord) {
+            // 10-Minute Grace Period: Forget old mistakes
+            const diffMs = now - attemptRecord.lastAttempt;
+            if (diffMs > 10 * 60 * 1000) {
+                attemptRecord.attempts = 0;
+            }
+
+            // The 3-Try Limit: 1-minute lockout
+            if (attemptRecord.attempts >= 3 && diffMs < 60 * 1000) {
+                const remainingSeconds = Math.ceil((60 * 1000 - diffMs) / 1000);
+                return res.status(429).json({
+                    message: `Too many attempts. Please try again in ${remainingSeconds}s`,
+                    retryAfter: remainingSeconds
+                });
+            }
+        }
+
+        const user = await User.findOne({ username: normalizedUsername });
+
+        const handleFailure = async () => {
+            const newAttempts = (attemptRecord ? attemptRecord.attempts : 0) + 1;
+            await LoginAttempt.findOneAndUpdate(
+                { deviceId, username: normalizedUsername },
+                {
+                    attempts: newAttempts,
+                    lastAttempt: now
+                },
+                { upsert: true, new: true }
+            );
+        };
+
         if (!user) {
+            await handleFailure();
             return res.status(401).json({ message: 'User does not exist' });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
+            await handleFailure();
             return res.status(401).json({ message: 'Incorrect password' });
         }
+
+        // Success Reset: Clear the slate
+        await LoginAttempt.deleteOne({ deviceId, username: normalizedUsername });
 
         // Save session
         req.session.user = {

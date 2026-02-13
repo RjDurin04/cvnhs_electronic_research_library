@@ -20,6 +20,49 @@ const AdminLoginPage: React.FC = () => {
   const [loginState, setLoginState] = useState<LoginState>('idle');
   const [loginError, setLoginError] = useState<string | null>(null);
   const [showCard, setShowCard] = useState(false);
+  const [lockoutTimer, setLockoutTimer] = useState<number>(0);
+
+  // Check for existing lockout on mount
+  useEffect(() => {
+    const deviceId = localStorage.getItem('cvnhs_auth_device_id');
+    if (!deviceId) return;
+
+    const lockoutKey = `lockout_${deviceId}`;
+    const unlockTime = localStorage.getItem(lockoutKey);
+    if (unlockTime) {
+      const remaining = Math.ceil((parseInt(unlockTime) - Date.now()) / 1000);
+      if (remaining > 0) {
+        setLockoutTimer(remaining);
+      } else {
+        localStorage.removeItem(lockoutKey);
+      }
+    }
+  }, []);
+
+  // Handle countdown logic when lockoutTimer is active
+  useEffect(() => {
+    if (lockoutTimer <= 0) return;
+
+    const interval = setInterval(() => {
+      setLockoutTimer((prev) => {
+        if (prev <= 1) {
+          const deviceId = localStorage.getItem('cvnhs_auth_device_id');
+          if (deviceId) localStorage.removeItem(`lockout_${deviceId}`);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [lockoutTimer > 0]); // Re-run when timer starts/stops
+
+  // Auto-clear lockout error when timer hits 0
+  useEffect(() => {
+    if (lockoutTimer === 0 && loginError?.toLowerCase().includes('too many attempts')) {
+      setLoginError(null);
+    }
+  }, [lockoutTimer, loginError]);
 
   // Force light mode on login page (ensuring it doesn't default to dark)
   useEffect(() => {
@@ -39,6 +82,8 @@ const AdminLoginPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (lockoutTimer > 0) return;
 
     if (!username || !password) {
       setLoginState('error');
@@ -68,6 +113,21 @@ const AdminLoginPage: React.FC = () => {
         setLoginState('error');
         const msg = typeof result === 'string' ? result : 'Invalid username or password';
         setLoginError(msg);
+
+        // Check if the error message indicates a lockout (429)
+        // Extract seconds from message like "Please try again in 59s"
+        if (msg.toLowerCase().includes('too many attempts')) {
+          const match = msg.match(/(\d+)s/);
+          const retryAfter = match ? parseInt(match[1]) : 60;
+
+          const deviceId = localStorage.getItem('cvnhs_auth_device_id');
+          if (deviceId) {
+            const unlockTime = Date.now() + (retryAfter * 1000);
+            localStorage.setItem(`lockout_${deviceId}`, unlockTime.toString());
+            setLockoutTimer(retryAfter);
+          }
+        }
+
         addToast({
           type: 'error',
           title: 'Authentication failed',
@@ -319,7 +379,9 @@ const AdminLoginPage: React.FC = () => {
                         >
                           <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
                           <p className="text-[11px] font-bold text-destructive leading-tight tracking-tight">
-                            {loginError}
+                            {lockoutTimer > 0 && loginError?.toLowerCase().includes('too many attempts')
+                              ? `Too many attempts. Please try again in ${lockoutTimer}s`
+                              : loginError}
                           </p>
                         </motion.div>
                       )}
@@ -328,18 +390,19 @@ const AdminLoginPage: React.FC = () => {
                     {/* Submit Button - Compact & Modern */}
                     <motion.button
                       type="submit"
-                      disabled={loginState === 'loading' || loginState === 'success'}
-                      whileHover={{ scale: loginState === 'idle' ? 1.01 : 1 }}
-                      whileTap={{ scale: loginState === 'idle' ? 0.99 : 1 }}
+                      disabled={loginState === 'loading' || loginState === 'success' || lockoutTimer > 0}
+                      whileHover={{ scale: (loginState === 'idle' && lockoutTimer === 0) ? 1.01 : 1 }}
+                      whileTap={{ scale: (loginState === 'idle' && lockoutTimer === 0) ? 0.99 : 1 }}
                       className={`
                         w-full h-12 rounded-xl font-bold text-sm
                         flex items-center justify-center gap-2
                         transition-all duration-300 outline-none
                         disabled:cursor-not-allowed
                         shadow-lg shadow-teal-500/10
-                        ${loginState === 'success' ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'text-white'}
+                        ${loginState === 'success' ? 'bg-emerald-500 text-white shadow-emerald-500/20' :
+                          lockoutTimer > 0 ? 'bg-slate-300 text-slate-500 shadow-none cursor-not-allowed' : 'text-white'}
                       `}
-                      style={loginState !== 'success' ? {
+                      style={loginState !== 'success' && lockoutTimer === 0 ? {
                         background: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)',
                       } : undefined}
                     >
@@ -347,6 +410,8 @@ const AdminLoginPage: React.FC = () => {
                         <Loader2 className="w-4 h-4 animate-spin text-white" />
                       ) : loginState === 'success' ? (
                         <Check className="w-4 h-4 text-white" />
+                      ) : lockoutTimer > 0 ? (
+                        <span>Wait {lockoutTimer}s</span>
                       ) : (
                         <span>Sign In</span>
                       )}
