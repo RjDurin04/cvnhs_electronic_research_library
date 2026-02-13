@@ -127,7 +127,6 @@ const updateUser = async (req, res) => {
 const deleteUser = async (req, res) => {
     try {
         const { id } = req.params;
-        const { currentPassword } = req.body;
 
         const sessionUserId = req.session.user.id.toString();
         const targetId = id.toString();
@@ -144,18 +143,18 @@ const deleteUser = async (req, res) => {
         const userToDelete = await User.findById(targetId);
         if (!userToDelete) return res.status(404).json({ message: 'User not found' });
 
-        // 3. Password Verification (Required for ALL self-deletions or admin actions)
-        // Note: Admin deleting someone else might also need their OWN password (best practice)
+        // 3. Password Verification (Removed based on user request)
+        /*
         if (!currentPassword) {
             return res.status(400).json({ message: 'Password verification required' });
         }
 
-        // We verify the password of the person PERFORMING the action (admins use their own, users use their own)
         const verifyingUser = await User.findById(req.session.user.id);
         const isMatch = await bcrypt.compare(currentPassword, verifyingUser.password);
         if (!isMatch) {
             return res.status(403).json({ message: 'Incorrect password' });
         }
+        */
 
         // 4. Last Admin Protection
         if (userToDelete.role === 'admin') {
@@ -169,10 +168,14 @@ const deleteUser = async (req, res) => {
         await User.findByIdAndDelete(targetId);
 
         // 6. Cleanup
-        const sessionsCollection = mongoose.connection.db.collection('sessions');
-        await sessionsCollection.deleteMany({
-            'session': { $regex: `"id":"${targetId}"` }
-        });
+        if (mongoose.connection.db) {
+            const sessionsCollection = mongoose.connection.db.collection('sessions');
+            await sessionsCollection.deleteMany({
+                'session': { $regex: `"id":"${targetId}"` }
+            });
+        } else {
+            console.warn('Mongoose connection DB not available for session cleanup');
+        }
 
         await logActivity(req, 'Deleted User', userToDelete.full_name, isSelf ? 'Self-deletion' : 'Administrative deletion');
 
@@ -183,7 +186,7 @@ const deleteUser = async (req, res) => {
         res.json({ message: 'Account deleted successfully' });
     } catch (error) {
         console.error('Error deleting user:', error);
-        res.status(500).json({ message: 'Error deleting user' });
+        res.status(500).json({ message: 'Error deleting user', error: error.message });
     }
 };
 
