@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Download, Copy, Eye, User, Calendar, BookOpen, Check, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -7,6 +7,7 @@ import { ResearchPaper, Author } from '@/types/paper';
 
 const PaperDetailPage: React.FC = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [paper, setPaper] = useState<ResearchPaper | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -80,11 +81,53 @@ const PaperDetailPage: React.FC = () => {
   const apaTitle = toSentenceCase(paper.title);
   const citation = `${formatAPAAuthors(paper.authors)} (${citationYear}). ${apaTitle} [Unpublished manuscript]. Catubig Valley National High School.`;
 
-  const handleCopyCitation = () => {
-    navigator.clipboard.writeText(citation);
-    setCopied(true);
-    toast.success('Citation copied to clipboard!');
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopyCitation = async () => {
+    try {
+      // Try the modern Clipboard API first
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(citation);
+      } else {
+        // Fallback for mobile browsers (iOS Safari, older Android)
+        const textArea = document.createElement('textarea');
+        textArea.value = citation;
+        // Prevent scrolling on iOS
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-9999px';
+        textArea.style.top = '-9999px';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        // For iOS Safari
+        textArea.setSelectionRange(0, citation.length);
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopied(true);
+      toast.success('Citation copied to clipboard!');
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      // Last-resort fallback
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = citation;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-9999px';
+        textArea.style.top = '-9999px';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        textArea.setSelectionRange(0, citation.length);
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        setCopied(true);
+        toast.success('Citation copied to clipboard!');
+        setTimeout(() => setCopied(false), 2000);
+      } catch (fallbackErr) {
+        toast.error('Could not copy. Please select and copy manually.');
+      }
+    }
   };
 
   // Helper to display simple list of names for header
@@ -92,7 +135,7 @@ const PaperDetailPage: React.FC = () => {
 
   const handleView = () => {
     if (paper.pdf_path) {
-      window.open(`/api/papers/view/${paper._id}`, '_blank');
+      navigate(`/papers/${paper._id}/view`);
     } else {
       toast.error('Document not available');
     }

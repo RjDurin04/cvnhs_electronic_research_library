@@ -12,6 +12,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Index from "./pages/Index";
 import AllPapersPage from "./pages/AllPapersPage";
 import PaperDetailPage from "./pages/PaperDetailPage";
+import PaperViewerPage from "./pages/PaperViewerPage";
 import StrandsPage from "./pages/StrandsPage";
 import AboutPage from "./pages/AboutPage";
 import ProfileSettingsPage from "./pages/ProfileSettingsPage";
@@ -59,6 +60,8 @@ const App = () => {
           <Routes>
             {/* Protected public routes - require login */}
             <Route element={<ProtectedRoute />}>
+              {/* Full-screen viewer route (no Layout wrapper) */}
+              <Route path="/papers/:id/view" element={<PaperViewerPage />} />
               <Route element={<Layout />}>
                 <Route path="/home" element={<Index />} />
                 <Route path="/papers" element={<AllPapersPage />} />

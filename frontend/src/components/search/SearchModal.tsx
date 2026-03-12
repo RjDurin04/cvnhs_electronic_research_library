@@ -3,20 +3,29 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
-import { mockPapers, searchPapers, Paper } from '@/data/mockPapers';
-import { PaperCard } from '@/components/papers/PaperCard';
+import { ResearchPaper } from '@/types/paper';
 
 export const SearchModal: React.FC = () => {
   const navigate = useNavigate();
   const { isSearchModalOpen, setSearchModalOpen, setSearchQuery } = useStore();
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<Paper[]>([]);
+  const [results, setResults] = useState<ResearchPaper[]>([]);
+  const [allPapers, setAllPapers] = useState<ResearchPaper[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Fetch real papers from the API when modal opens
   useEffect(() => {
     if (isSearchModalOpen) {
       inputRef.current?.focus();
       document.body.style.overflow = 'hidden';
+
+      // Fetch papers from the API if not already loaded
+      if (allPapers.length === 0) {
+        fetch('/api/papers')
+          .then(res => res.ok ? res.json() : [])
+          .then(data => setAllPapers(data))
+          .catch(() => setAllPapers([]));
+      }
     } else {
       document.body.style.overflow = 'unset';
       setQuery('');
@@ -30,12 +39,24 @@ export const SearchModal: React.FC = () => {
 
   useEffect(() => {
     if (query.trim()) {
-      const searchResults = searchPapers(query);
+      const lowercaseQuery = query.toLowerCase();
+      const searchResults = allPapers.filter(
+        (paper) =>
+          paper.title.toLowerCase().includes(lowercaseQuery) ||
+          paper.abstract.toLowerCase().includes(lowercaseQuery) ||
+          paper.authors.some((author) =>
+            `${author.firstName} ${author.lastName}`.toLowerCase().includes(lowercaseQuery)
+          ) ||
+          paper.keywords.some((keyword) =>
+            keyword.toLowerCase().includes(lowercaseQuery)
+          ) ||
+          paper.strand.toLowerCase().includes(lowercaseQuery)
+      );
       setResults(searchResults.slice(0, 6));
     } else {
       setResults([]);
     }
-  }, [query]);
+  }, [query, allPapers]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,13 +132,13 @@ export const SearchModal: React.FC = () => {
                 </p>
                 {results.map((paper, index) => (
                   <motion.div
-                    key={paper.id}
+                    key={paper._id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
                     onClick={() => {
                       setSearchModalOpen(false);
-                      navigate(`/papers/${paper.id}`);
+                      navigate(`/papers/${paper._id}`);
                     }}
                     className="cursor-pointer"
                   >
@@ -131,7 +152,7 @@ export const SearchModal: React.FC = () => {
                             {paper.title}
                           </h3>
                           <p className="text-sm text-muted-foreground mt-1">
-                            {paper.authors.join(', ')} • {paper.school_year}
+                            {paper.authors.map(a => `${a.firstName} ${a.lastName}`).join(', ')} • {paper.school_year}
                           </p>
                         </div>
                         <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0 mt-1" />

@@ -15,7 +15,7 @@ export const HeroSection: React.FC = () => {
   const navigate = useNavigate();
   const { setSearchQuery, setSearchModalOpen } = useStore();
   const [inputValue, setInputValue] = useState('');
-  const [stats, setStats] = useState<Stats>({ papers: 0, downloads: 0, strands: 0, since: 2020 });
+  const [stats, setStats] = useState<Stats>({ papers: 0, downloads: 0, strands: 0, since: 2025 });
   const [strands, setStrands] = useState<string[]>([]);
 
   useEffect(() => {

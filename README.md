@@ -17,6 +17,7 @@ A modern, full-stack web application for managing and sharing student research p
 - 👥 **User Management** – Role-based access (Admin/Editor/Viewer) with secure authentication
 - 📊 **Analytics Dashboard** – Track downloads, view statistics, and monitor activity
 - 🔍 **Search & Filter** – Find papers by title, author, keywords, or strand
+- 🛡️ **Security** – Built-in brute-force login protection and secure sessions
 - 📜 **Activity Logs** – Full audit trail of system actions (admin only)
 - 👤 **Profile Settings** – Update username, password, and logout everywhere
 - 🌙 **Dark Mode** – Beautiful dark theme enabled by default
@@ -63,7 +64,7 @@ npm run dev
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | React 18, TypeScript, Tailwind CSS, shadcn/ui |
+| Frontend | React 18, TypeScript, Tailwind CSS, shadcn/ui, react-pdf |
 | Build | Vite 5, SWC |
 | State | Zustand, TanStack Query |
 | Animation | Framer Motion |

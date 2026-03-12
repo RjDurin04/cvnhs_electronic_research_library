@@ -121,6 +121,7 @@ flowchart LR
 | **Build Tool** | Vite 5 | Fast development & production builds |
 | **Styling** | Tailwind CSS + shadcn/ui | Modern, responsive design |
 | **Animations** | Framer Motion | Smooth UI transitions |
+| **PDF Rendering** | react-pdf | Full-screen in-browser document viewer |
 | **State** | Zustand | Application state management |
 | **Data Fetching** | TanStack Query | Server state & caching |
 | **Backend** | Express.js 5 (Node.js) | API server |
@@ -193,6 +194,7 @@ cvnhs_electronic_research_library/
 erDiagram
     User ||--o{ Session : has
     User ||--o{ ActivityLog : performs
+    User ||--o{ LoginAttempt : has
     Strand ||--o{ ResearchPaper : contains
     
     User {
@@ -236,6 +238,14 @@ erDiagram
         string actionType "e.g., Added Paper"
         string targetItem "Paper title or user name"
         string changeDetails "What was modified"
+    }
+
+    LoginAttempt {
+        ObjectId _id
+        string deviceId "Unique device identifier"
+        string username "Attempted login username"
+        number attempts "Failed attempt count"
+        date lastAttempt "Timestamp of last attempt"
     }
 ```
 
@@ -308,6 +318,7 @@ erDiagram
 | **Home** | `/home` | Hero section, featured papers, strand showcase |
 | **All Papers** | `/papers` | Browse and search all papers |
 | **Paper Details** | `/papers/:id` | View paper info and download PDF |
+| **Paper Viewer** | `/papers/:id/view` | Full-screen in-browser PDF document viewer |
 | **Strands** | `/strands` | Browse papers by academic strand |
 | **About** | `/about` | Information about the library |
 | **Profile** | `/profile` | Account settings (username, password) |
@@ -329,17 +340,23 @@ erDiagram
 
 1. **Password Hashing**: All passwords are hashed using bcrypt (10 salt rounds)
 2. **Session Management**: 
-   - Sessions stored in MongoDB
+   - Sessions stored securely in MongoDB
    - 15-minute expiry with rolling refresh
-   - HTTP-only cookies
+   - Strict `httpOnly` cookies (mitigates XSS session hijacking)
 3. **Route Protection**: All sensitive routes require authentication
 4. **Role-Based Access**: 
    - Activity logs are admin-only
    - Viewers cannot edit their own name
    - Editors have intermediate permissions
-5. **Input Validation**: File type checking (PDF only), size limits (50MB)
-6. **Self-Protection**: Users cannot delete their own accounts
-7. **Logout Everywhere**: Users can terminate all their active sessions
+5. **Data & Upload Validation**: 
+   - Inputs sanitized and escaped via `express-validator` to prevent malicious payloads
+   - File uploads strictly limited to `application/pdf` MIME types via `multer`
+   - Strict 50MB file size limits to prevent memory/storage exhaustion 
+   - PDF downloads resolve through the database first, mitigating Path Traversal attacks
+6. **Database Integrity**: Utilizing Mongoose ORM automatically sanitizes queries, preventing NoSQL Injection attacks.
+7. **Self-Deletion & Admin Protection**: Users can delete their own accounts, but the system prevents the final administrator from deleting their account to avoid an administrative lockout.
+8. **Brute-Force Protection**: Tracking `LoginAttempt` per user/device to throttle bad logins
+9. **Logout Everywhere**: Users can terminate all their active sessions
 
 ---
 

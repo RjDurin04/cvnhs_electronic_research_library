@@ -16,7 +16,7 @@ const getPublicStats = async (req, res) => {
             papers: totalPapers,
             downloads: totalDownloads,
             strands: activeStrands,
-            since: 2020
+            since: 2025
         });
     } catch (error) {
         console.error('Error fetching public stats:', error);

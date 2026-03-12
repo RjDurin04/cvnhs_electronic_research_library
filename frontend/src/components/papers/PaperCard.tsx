@@ -94,7 +94,7 @@ export const PaperCard: React.FC<PaperCardProps> = ({
         style={{ willChange: 'transform, opacity' }}
       >
         <Link
-          to={`/papers/${paper.id}`}
+          to={`/papers/${paper._id}`}
           className={`group relative block h-full p-4 md:p-6 rounded-2xl bg-card/80 dark:bg-card/60 border border-border/50 hover:border-primary/30 transition-all duration-300 overflow-hidden ${strandStyle.glow} hover:shadow-xl`}
         >
           {/* Subtle gradient overlay */}
@@ -150,7 +150,7 @@ export const PaperCard: React.FC<PaperCardProps> = ({
         style={{ willChange: 'transform, opacity' }}
       >
         <Link
-          to={`/papers/${paper.id}`}
+          to={`/papers/${paper._id}`}
           className={`relative block h-full rounded-3xl bg-card/80 dark:bg-card/60 border border-border/50 hover:border-primary/40 transition-all duration-300 overflow-hidden ${strandStyle.glow} hover:shadow-xl`}
         >
           {/* Multi-layer background effects */}
@@ -247,7 +247,7 @@ export const PaperCard: React.FC<PaperCardProps> = ({
       className="h-full"
     >
       <Link
-        to={`/papers/${paper.id}`}
+        to={`/papers/${paper._id}`}
         className={`group relative block h-full rounded-2xl bg-card/50 dark:bg-card/30 backdrop-blur-sm border border-border/50 hover:border-primary/30 transition-all duration-500 overflow-hidden ${strandStyle.glow} hover:shadow-xl hover:-translate-y-1`}
       >
         {/* Background gradient */}
