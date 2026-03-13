@@ -7,7 +7,8 @@ const {
     updateUser,
     deleteUser,
     getActiveSessionUsers,
-    kickUser
+    kickUser,
+    updateBulkPermission
 } = require('../controllers/userController');
 
 // All routes here require authentication
@@ -15,6 +16,7 @@ router.use(isAuthenticated);
 
 router.get('/', getUsers);
 router.post('/', createUser);
+router.put('/bulk-permission', updateBulkPermission);
 router.put('/:id', updateUser);
 router.delete('/:id', deleteUser);
 

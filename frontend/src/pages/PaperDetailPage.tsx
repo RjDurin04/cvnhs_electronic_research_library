@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ArrowLeft, Download, Copy, Eye, User, Calendar, BookOpen, Check, Loader2 } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, Download, Copy, Eye, User, Calendar, BookOpen, Check, Loader2, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { ResearchPaper, Author } from '@/types/paper';
+import { useAdminStore } from '@/store/adminStore';
 
 const PaperDetailPage: React.FC = () => {
   const { id } = useParams();
@@ -12,6 +14,8 @@ const PaperDetailPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
+  const { currentUser } = useAdminStore();
 
   useEffect(() => {
     const fetchPaper = async () => {
@@ -133,12 +137,28 @@ const PaperDetailPage: React.FC = () => {
   // Helper to display simple list of names for header
   const displayAuthors = paper.authors.map(a => `${a.firstName} ${a.lastName}`).join(', ');
 
-  const handleView = () => {
-    if (paper.pdf_path) {
-      navigate(`/papers/${paper._id}/view`);
-    } else {
+  const handleView = async () => {
+    if (!paper.pdf_path) {
       toast.error('Document not available');
+      return;
     }
+
+    // Always fetch fresh permission from backend
+    try {
+      const res = await fetch('/api/auth/me', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        const user = data.user;
+        if (user.role === 'viewer' && !user.hasPermission) {
+          setShowPermissionModal(true);
+          return;
+        }
+      }
+    } catch (err) {
+      console.error('Error checking permission:', err);
+    }
+
+    navigate(`/papers/${paper._id}/view`);
   };
 
   return (
@@ -212,25 +232,49 @@ const PaperDetailPage: React.FC = () => {
             >
               <Eye className="w-5 h-5" /> View Document
             </button>
-            <button
-              onClick={() => {
-                if (paper.pdf_path) {
-                  window.open(`/api/papers/download/${paper._id}`, '_blank');
-                } else {
-                  toast.error('Document not available for download');
-                }
-              }}
-              className="flex-1 py-4 rounded-2xl bg-secondary text-secondary-foreground font-semibold flex items-center justify-center gap-2 hover:bg-muted transition-all btn-press"
-            >
-              <Download className="w-5 h-5" /> Download PDF
-            </button>
+
             <button onClick={handleCopyCitation} className="flex-1 py-4 rounded-2xl bg-secondary text-secondary-foreground font-semibold flex items-center justify-center gap-2 hover:bg-muted transition-all btn-press">
               {copied ? <Check className="w-5 h-5 text-success" /> : <Copy className="w-5 h-5" />} {copied ? 'Copied!' : 'Copy Citation'}
             </button>
           </div>
         </motion.div>
-      </div>
-    </div>
+      </div >
+
+      {/* Permission Denied Modal */}
+      {
+        createPortal(
+          <AnimatePresence>
+            {showPermissionModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="w-full max-w-sm bg-card border border-border rounded-2xl shadow-elevated overflow-hidden p-6"
+                >
+                  <div className="flex flex-col items-center text-center gap-4">
+                    <div className="w-14 h-14 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                      <ShieldAlert className="w-7 h-7" />
+                    </div>
+                    <h3 className="text-lg font-bold text-foreground">Access Restricted</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      You do not have permission to view this document. Please contact the administrator to request access.
+                    </p>
+                    <button
+                      onClick={() => setShowPermissionModal(false)}
+                      className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold hover:brightness-110 transition-all text-sm"
+                    >
+                      Understood
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>,
+          document.body
+        )
+      }
+    </div >
   );
 };
 

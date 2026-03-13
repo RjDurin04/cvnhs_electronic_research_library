@@ -6,6 +6,7 @@ interface User {
   name: string;
   username: string;
   role: 'admin' | 'editor' | 'viewer';
+  hasPermission?: boolean;
   avatar?: string;
 }
 
@@ -81,6 +82,7 @@ export const useAdminStore = create<AdminState>()(
                 name: data.user.full_name,
                 username: data.user.username,
                 role: data.user.role,
+                hasPermission: data.user.hasPermission,
               },
             });
             return true;
@@ -116,6 +118,7 @@ export const useAdminStore = create<AdminState>()(
                 name: data.user.full_name,
                 username: data.user.username,
                 role: data.user.role,
+                hasPermission: data.user.hasPermission,
               },
             });
           } else {

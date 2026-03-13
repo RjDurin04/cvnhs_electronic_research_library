@@ -33,8 +33,28 @@ interface UserData {
   username: string;
   role: 'admin' | 'viewer' | 'editor';
   createdAt: string;
+  hasPermission?: boolean;
+  permissionGrantedAt?: string | null;
   // password is not returned
 }
+
+const getTimeDuration = (dateString: string | undefined | null) => {
+  if (!dateString) return 'N/A';
+  const start = new Date(dateString).getTime();
+  if (isNaN(start)) return 'N/A';
+
+  const now = Date.now();
+  const diff = Math.max(0, now - start);
+
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) return `${days}d ${hours % 24}h`;
+  if (hours > 0) return `${hours}h ${minutes % 60}m`;
+  if (minutes > 0) return `${minutes}m`;
+  return '< 1m';
+};
 
 const roleIcons = {
   admin: ShieldCheck,
@@ -54,6 +74,12 @@ const AdminUsersPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
+
+  // Tabs
+  const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'granted'>('all');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [bulkActionType, setBulkActionType] = useState<'grant' | 'revoke'>('grant');
 
   // Modal States
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -76,12 +102,22 @@ const AdminUsersPage: React.FC = () => {
     username: '',
     password: '',
     role: 'viewer' as 'admin' | 'viewer' | 'editor',
+    hasPermission: false,
     currentAdminPassword: '', // For verifying admin identity on edit
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Timer refresh for duration column
+  const [refreshTick, setRefreshTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRefreshTick(t => t + 1);
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Fetch Users
   const fetchUsers = async () => {
@@ -120,9 +156,14 @@ const AdminUsersPage: React.FC = () => {
     fetchSessions();
   }, [addToast]);
 
+  // Reset selection when tab changes
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [activeTab]);
+
   const openAddModal = () => {
     setModalMode('add');
-    setFormData({ fullName: '', username: '', password: '', role: 'viewer', currentAdminPassword: '' });
+    setFormData({ fullName: '', username: '', password: '', role: 'viewer', hasPermission: false, currentAdminPassword: '' });
     setErrors({});
     setIsModalOpen(true);
   };
@@ -135,6 +176,7 @@ const AdminUsersPage: React.FC = () => {
       username: user.username,
       password: '', // Leave empty if not changing
       role: user.role,
+      hasPermission: user.hasPermission || false,
       currentAdminPassword: '',
     });
     setErrors({});
@@ -191,7 +233,8 @@ const AdminUsersPage: React.FC = () => {
             full_name: formData.fullName,
             username: formData.username,
             password: formData.password,
-            role: formData.role
+            role: formData.role,
+            hasPermission: formData.role === 'viewer' ? formData.hasPermission : true
           }),
         });
 
@@ -208,7 +251,8 @@ const AdminUsersPage: React.FC = () => {
         const body: any = {
           full_name: formData.fullName,
           username: formData.username,
-          role: formData.role
+          role: formData.role,
+          hasPermission: formData.role === 'viewer' ? formData.hasPermission : true
         };
         if (formData.password) body.password = formData.password;
         if (formData.currentAdminPassword) body.currentPassword = formData.currentAdminPassword;
@@ -235,6 +279,38 @@ const AdminUsersPage: React.FC = () => {
     } catch (error) {
       console.error(error);
       setErrors({ ...errors, form: 'Network error occurred' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleBulkPermissionUpdate = async () => {
+    if (selectedIds.length === 0) return;
+    setIsSubmitting(true);
+    try {
+      const hasPermission = bulkActionType === 'grant';
+      const res = await fetch('/api/users/bulk-permission', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userIds: selectedIds, hasPermission }),
+      });
+
+      if (res.ok) {
+        addToast({
+          type: 'success',
+          title: 'Success',
+          message: `Permissions ${hasPermission ? 'granted' : 'revoked'} successfully`
+        });
+        setIsBulkModalOpen(false);
+        setSelectedIds([]);
+        fetchUsers();
+      } else {
+        const data = await res.json();
+        addToast({ type: 'error', title: 'Error', message: data.message || 'Failed to update permissions' });
+      }
+    } catch (error) {
+      console.error(error);
+      addToast({ type: 'error', title: 'Error', message: 'Network error occurred' });
     } finally {
       setIsSubmitting(false);
     }
@@ -287,124 +363,194 @@ const AdminUsersPage: React.FC = () => {
     }
   };
 
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>, filteredData: UserData[]) => {
+    if (e.target.checked) {
+      setSelectedIds(filteredData.map(u => u._id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectOne = (id: string) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
   const columns = React.useMemo<ColumnDef<UserData>[]>(
-    () => [
-      {
-        accessorKey: 'full_name',
-        header: 'User',
-        cell: ({ row }) => (
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-semibold">
-              {row.original.full_name.charAt(0)}
+    () => {
+      const baseCols: ColumnDef<UserData>[] = [
+        {
+          accessorKey: 'full_name',
+          header: 'User',
+          cell: ({ row }) => (
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-semibold">
+                {row.original.full_name.charAt(0)}
+              </div>
+              <div>
+                <p className="font-medium text-foreground">{row.original.full_name}</p>
+              </div>
             </div>
-            <div>
-              <p className="font-medium text-foreground">{row.original.full_name}</p>
-            </div>
-          </div>
-        ),
-      },
-      {
-        accessorKey: 'username',
-        header: 'Username',
-        cell: ({ row }) => (
-          <span className="text-sm text-muted-foreground">@{row.original.username}</span>
-        ),
-      },
-      {
-        accessorKey: 'role',
-        header: 'Role',
-        cell: ({ row }) => {
-          const Icon = roleIcons[row.original.role];
-          return (
-            <span
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${roleColors[row.original.role]
-                }`}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              {row.original.role.charAt(0).toUpperCase() + row.original.role.slice(1)}
-            </span>
-          );
+          ),
         },
-      },
-      {
-        id: 'status',
-        header: 'Status',
-        cell: ({ row }) => {
-          const isActive = activeUserIds.includes(row.original._id);
-          return (
-            <span
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${isActive
-                ? 'bg-emerald-500/10 text-emerald-500'
-                : 'bg-muted text-muted-foreground'
-                }`}
-            >
-              <Circle className={`w-2 h-2 ${isActive ? 'fill-emerald-500' : 'fill-muted-foreground'}`} />
-              {isActive ? 'Active' : 'Inactive'}
-            </span>
-          );
+        {
+          accessorKey: 'username',
+          header: 'Username',
+          cell: ({ row }) => (
+            <span className="text-sm text-muted-foreground">@{row.original.username}</span>
+          ),
         },
-      },
-      {
-        id: 'actions',
-        header: 'Actions',
-        cell: ({ row }) => {
-          const isCurrentUser = row.original._id === currentUser?.id;
-          const isAdmin = currentUser?.role === 'admin';
-          const isActive = activeUserIds.includes(row.original._id);
+        {
+          accessorKey: 'role',
+          header: 'Role',
+          cell: ({ row }) => {
+            const Icon = roleIcons[row.original.role];
+            return (
+              <span
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${roleColors[row.original.role]
+                  }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {row.original.role.charAt(0).toUpperCase() + row.original.role.slice(1)}
+              </span>
+            );
+          },
+        },
+        {
+          id: 'status',
+          header: 'Status',
+          cell: ({ row }) => {
+            const isActive = activeUserIds.includes(row.original._id);
+            return (
+              <span
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${isActive
+                  ? 'bg-emerald-500/10 text-emerald-500'
+                  : 'bg-muted text-muted-foreground'
+                  }`}
+              >
+                <Circle className={`w-2 h-2 ${isActive ? 'fill-emerald-500' : 'fill-muted-foreground'}`} />
+                {isActive ? 'Active' : 'Inactive'}
+              </span>
+            );
+          },
+        },
+      ];
 
-          // Allow edit if it's NOT an admin account
-          // Admins should manage their own accounts via ProfileSettingsPage
-          const canEdit = row.original.role !== 'admin';
+      // Add Duration column only for Granted Access tab
+      if (activeTab === 'granted') {
+        baseCols.splice(3, 0, {
+          id: 'duration',
+          header: 'Access Duration',
+          cell: ({ row }) => (
+            <span className="text-sm font-medium text-primary">
+              {getTimeDuration(row.original.permissionGrantedAt)}
+            </span>
+          ),
+        });
+      }
 
-          return (
-            <div className="flex items-center gap-1">
-              {canEdit && (
-                <button
-                  onClick={() => openEditModal(row.original)}
-                  className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                  title={isCurrentUser ? "Edit Your Account" : "Edit User Full Name"}
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
-              )}
-              {isActive && !isCurrentUser && (
-                <button
-                  onClick={() => openKickModal(row.original)}
-                  className="p-2 rounded-lg hover:bg-amber-500/10 text-muted-foreground hover:text-amber-500 transition-colors"
-                  title="Kick User"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
-              )}
-              {row.original.role !== 'admin' && (
-                <button
-                  disabled={isCurrentUser}
-                  onClick={() => openDeleteModal(row.original)}
-                  className={`p-2 rounded-lg transition-colors ${isCurrentUser
-                    ? 'text-muted-foreground/30 cursor-not-allowed'
-                    : 'hover:bg-destructive/10 text-muted-foreground hover:text-destructive'
-                    }`}
-                  title={isCurrentUser ? "Cannot delete yourself" : "Delete User"}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          );
-        },
-      },
-    ],
-    [currentUser, activeUserIds]
+      // Conditional Actions Logic
+      if (activeTab === 'all') {
+        const actionsCol: ColumnDef<UserData> = {
+          id: 'actions',
+          header: 'Actions',
+          cell: ({ row }) => {
+            const isCurrentUser = row.original._id === currentUser?.id;
+            const isActive = activeUserIds.includes(row.original._id);
+            const canEdit = row.original.role !== 'admin';
+
+            return (
+              <div className="flex items-center gap-1">
+                {canEdit && (
+                  <button
+                    onClick={() => openEditModal(row.original)}
+                    className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                    title={isCurrentUser ? "Edit Your Account" : "Edit User Full Name"}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                )}
+                {isActive && !isCurrentUser && (
+                  <button
+                    onClick={() => openKickModal(row.original)}
+                    className="p-2 rounded-lg hover:bg-amber-500/10 text-muted-foreground hover:text-amber-500 transition-colors"
+                    title="Kick User"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                )}
+                {row.original.role !== 'admin' && (
+                  <button
+                    disabled={isCurrentUser}
+                    onClick={() => openDeleteModal(row.original)}
+                    className={`p-2 rounded-lg transition-colors ${isCurrentUser
+                      ? 'text-muted-foreground/30 cursor-not-allowed'
+                      : 'hover:bg-destructive/10 text-muted-foreground hover:text-destructive'
+                      }`}
+                    title={isCurrentUser ? "Cannot delete yourself" : "Delete User"}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            );
+          },
+        };
+        baseCols.push(actionsCol);
+      }
+      // Note: 'pending' and 'granted' tabs get NO action columns as requested.
+      // Permissions are managed via bulk selection bar.
+
+      if (activeTab === 'pending' || activeTab === 'granted') {
+        const checkboxCol: ColumnDef<UserData> = {
+          id: 'select',
+          header: ({ table }) => {
+            const currentRows = table.getRowModel().rows.map(r => r.original._id);
+            const isAllSelected = currentRows.length > 0 && currentRows.every(id => selectedIds.includes(id));
+            const isSomeSelected = currentRows.some(id => selectedIds.includes(id));
+            return (
+              <input
+                type="checkbox"
+                checked={isAllSelected}
+                ref={input => { if (input) input.indeterminate = isSomeSelected && !isAllSelected; }}
+                onChange={(e) => handleSelectAll(e, table.getRowModel().rows.map(r => r.original))}
+                className="w-4 h-4 rounded text-primary border-border focus:ring-primary shadow-sm cursor-pointer"
+              />
+            );
+          },
+          cell: ({ row }) => (
+            <input
+              type="checkbox"
+              checked={selectedIds.includes(row.original._id)}
+              onChange={() => handleSelectOne(row.original._id)}
+              className="w-4 h-4 rounded text-primary border-border focus:ring-primary shadow-sm cursor-pointer"
+            />
+          ),
+        };
+        return [checkboxCol, ...baseCols];
+      }
+
+      return baseCols;
+    },
+    [currentUser, activeUserIds, activeTab, selectedIds, data, refreshTick]
   );
 
   const sortedData = React.useMemo(() => {
+    let filteredData = [...data];
+    if (activeTab === 'pending') {
+      filteredData = filteredData.filter(u => u.role === 'viewer' && !u.hasPermission);
+    } else if (activeTab === 'granted') {
+      filteredData = filteredData.filter(u => u.role === 'viewer' && u.hasPermission);
+    }
+
     const rolePriority = {
       admin: 0,
       editor: 1,
       viewer: 2,
     };
 
-    return [...data].sort((a, b) => {
+    return filteredData.sort((a, b) => {
       // 1. Primary Sort: Role Priority
       const priorityA = rolePriority[a.role];
       const priorityB = rolePriority[b.role];
@@ -416,7 +562,7 @@ const AdminUsersPage: React.FC = () => {
       // 2. Secondary Sort: Full Name (A-Z)
       return a.full_name.localeCompare(b.full_name);
     });
-  }, [data]);
+  }, [data, activeTab]);
 
   const table = useReactTable({
     data: sortedData,
@@ -479,6 +625,67 @@ const AdminUsersPage: React.FC = () => {
           );
         })}
       </div>
+
+      {/* Tabs */}
+      <div className="flex border-b border-border gap-6">
+        <button
+          onClick={() => setActiveTab('all')}
+          className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'all' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+        >
+          All Users
+        </button>
+        <button
+          onClick={() => setActiveTab('pending')}
+          className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'pending' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+        >
+          Pending Access
+        </button>
+        <button
+          onClick={() => setActiveTab('granted')}
+          className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'granted' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+        >
+          Granted Access
+        </button>
+      </div>
+
+      {/* Bulk Action Bar */}
+      {selectedIds.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-4 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-between"
+        >
+          <span className="text-primary font-medium text-sm">
+            {selectedIds.length} users selected
+          </span>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setSelectedIds([])}
+              className="px-4 py-2 text-sm font-medium text-foreground bg-card hover:bg-muted border border-border rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+            {activeTab === 'pending' && (
+              <button
+                onClick={() => { setBulkActionType('grant'); setIsBulkModalOpen(true); }}
+                className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:brightness-110 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                Grant Selected Access
+              </button>
+            )}
+            {activeTab === 'granted' && (
+              <button
+                onClick={() => { setBulkActionType('revoke'); setIsBulkModalOpen(true); }}
+                className="px-4 py-2 text-sm font-medium text-destructive-foreground bg-destructive hover:brightness-110 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <EyeOff className="w-4 h-4" />
+                Revoke Selected Access
+              </button>
+            )}
+          </div>
+        </motion.div>
+      )}
 
       {/* Table */}
       <motion.div
@@ -685,6 +892,23 @@ const AdminUsersPage: React.FC = () => {
                             <option value="admin">Admin</option>
                           </select>
                         </div>
+
+                        {/* Permission Toggle (Hidden for Admins/Editors) */}
+                        {formData.role === 'viewer' && (
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground">Document Access</label>
+                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={formData.hasPermission}
+                                onChange={(e) => setFormData({ ...formData, hasPermission: e.target.checked })}
+                                disabled={modalMode === 'edit' && selectedUser?._id !== currentUser?.id}
+                                className="w-4 h-4 rounded text-primary focus:ring-primary shadow-sm cursor-pointer disabled:opacity-50"
+                              />
+                              <span className="text-sm text-foreground">Grant permission to view documents</span>
+                            </label>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -827,6 +1051,51 @@ const AdminUsersPage: React.FC = () => {
                       className="px-4 py-2 rounded-xl bg-amber-500 text-white hover:brightness-110 font-medium text-sm flex items-center justify-center"
                     >
                       {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Kick User'}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+
+      {/* Bulk Action Confirmation Modal */}
+      {createPortal(
+        <AnimatePresence>
+          {isBulkModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm focus-ring">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="w-full max-w-sm bg-card border border-border rounded-2xl shadow-elevated overflow-hidden p-6"
+              >
+                <div className="flex flex-col items-center text-center gap-4">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 ${bulkActionType === 'grant' ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>
+                    {bulkActionType === 'grant' ? <ShieldCheck className="w-6 h-6" /> : <EyeOff className="w-6 h-6" />}
+                  </div>
+                  <h3 className="text-lg font-bold text-foreground">
+                    {bulkActionType === 'grant' ? 'Grant Access?' : 'Revoke Access?'}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    You are about to {bulkActionType === 'grant' ? 'grant' : 'revoke'} document access for <strong>{selectedIds.length}</strong> user(s).
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-3 w-full mt-2">
+                    <button
+                      onClick={() => setIsBulkModalOpen(false)}
+                      className="px-4 py-2 rounded-xl bg-secondary text-foreground hover:bg-muted font-medium text-sm"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleBulkPermissionUpdate}
+                      disabled={isSubmitting}
+                      className={`px-4 py-2 rounded-xl text-white font-medium text-sm flex items-center justify-center ${bulkActionType === 'grant' ? 'bg-primary hover:brightness-110' : 'bg-destructive hover:brightness-110'}`}
+                    >
+                      {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm'}
                     </button>
                   </div>
                 </div>

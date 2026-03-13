@@ -21,6 +21,25 @@ const PaperViewerPage: React.FC = () => {
     const containerRef = useRef<HTMLDivElement>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState(false);
+    const [permissionDenied, setPermissionDenied] = useState(false);
+
+    // Permission guard: check on mount
+    useEffect(() => {
+        const checkPermission = async () => {
+            try {
+                const res = await fetch('/api/auth/me', { credentials: 'include' });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.user.role === 'viewer' && !data.user.hasPermission) {
+                        setPermissionDenied(true);
+                    }
+                }
+            } catch (err) {
+                console.error('Error checking permission:', err);
+            }
+        };
+        checkPermission();
+    }, []);
 
     // Calculate the width to fit the container
     const updateWidth = useCallback(() => {
@@ -66,6 +85,28 @@ const PaperViewerPage: React.FC = () => {
     const zoomIn = () => setScale(prev => Math.min(prev + 0.25, 3));
     const zoomOut = () => setScale(prev => Math.max(prev - 0.25, 0.5));
 
+    if (permissionDenied) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-background px-4">
+                <div className="flex flex-col items-center text-center gap-4 max-w-sm">
+                    <div className="w-16 h-16 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                        <ArrowLeft className="w-8 h-8" />
+                    </div>
+                    <h2 className="text-xl font-bold text-foreground">Access Restricted</h2>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                        You do not have permission to view this document. Please contact the administrator to request access.
+                    </p>
+                    <button
+                        onClick={() => navigate(-1)}
+                        className="px-6 py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold hover:brightness-110 transition-all text-sm"
+                    >
+                        Go Back
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen flex flex-col bg-background">
             {/* Top Bar */}
@@ -108,13 +149,6 @@ const PaperViewerPage: React.FC = () => {
                             {numPages} page{numPages > 1 ? 's' : ''}
                         </span>
                     )}
-                    <a
-                        href={`/api/papers/download/${id}`}
-                        className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:brightness-110 transition-all"
-                    >
-                        <Download className="w-4 h-4" />
-                        <span className="hidden sm:inline">Download</span>
-                    </a>
                 </div>
             </div>
 
@@ -171,15 +205,8 @@ const PaperViewerPage: React.FC = () => {
                             </div>
                             <h2 className="text-lg font-semibold">Unable to display document</h2>
                             <p className="text-sm text-muted-foreground">
-                                The document could not be loaded. Try downloading it instead.
+                                The document could not be loaded.
                             </p>
-                            <a
-                                href={`/api/papers/download/${id}`}
-                                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-medium hover:brightness-110 transition-all"
-                            >
-                                <Download className="w-5 h-5" />
-                                Download PDF
-                            </a>
                             <button
                                 onClick={() => navigate(-1)}
                                 className="text-sm text-muted-foreground hover:text-foreground transition-colors"

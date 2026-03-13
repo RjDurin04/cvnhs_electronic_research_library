@@ -22,6 +22,14 @@ const userSchema = new mongoose.Schema({
         type: String,
         enum: ['admin', 'viewer', 'editor'],
         default: 'viewer'
+    },
+    hasPermission: {
+        type: Boolean,
+        default: false
+    },
+    permissionGrantedAt: {
+        type: Date,
+        default: null
     }
 }, {
     timestamps: true // Adds createdAt and updatedAt automatically

@@ -71,7 +71,8 @@ const login = async (req, res) => {
             id: user._id,
             username: user.username,
             full_name: user.full_name,
-            role: user.role
+            role: user.role,
+            hasPermission: user.hasPermission
         };
 
         // Log Login Activity
@@ -117,8 +118,17 @@ const logout = (req, res) => {
     });
 };
 
-const getMe = (req, res) => {
+const getMe = async (req, res) => {
     if (req.session.user) {
+        // Refresh hasPermission from DB so admin changes take effect immediately
+        try {
+            const freshUser = await User.findById(req.session.user.id).select('hasPermission');
+            if (freshUser) {
+                req.session.user.hasPermission = freshUser.hasPermission;
+            }
+        } catch (e) {
+            console.error('Error refreshing permission:', e);
+        }
         res.json({ user: req.session.user });
     } else {
         res.status(401).json({ message: 'Not authenticated' });

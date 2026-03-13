@@ -300,7 +300,7 @@ const AdminActivityLogsPage = () => {
                                     <th className="px-6 py-4 font-bold bg-muted/20 w-[150px]">Performed By</th>
                                     <th className="px-6 py-4 font-bold bg-muted/20 w-[180px]">Action</th>
                                     <th className="px-6 py-4 font-bold bg-muted/20 w-[250px]">Target</th>
-                                    <th className="px-6 py-4 font-bold bg-muted/20 min-w-[300px]">Changes</th>
+                                    <th className="px-6 py-4 font-bold bg-muted/20 w-auto">Changes</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border/40">
@@ -382,22 +382,10 @@ const AdminActivityLogsPage = () => {
                                                     </TooltipContent>
                                                 </Tooltip>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <div className="max-w-[400px] truncate text-xs text-muted-foreground cursor-default flex items-center gap-2">
-                                                            {log.changeDetails || '-'}
-                                                            {log.changeDetails && log.changeDetails.length > 50 && (
-                                                                <Info className="w-3 h-3 flex-shrink-0 text-muted-foreground/50" />
-                                                            )}
-                                                        </div>
-                                                    </TooltipTrigger>
-                                                    {log.changeDetails && (
-                                                        <TooltipContent side="top" className="max-w-[500px] p-3 text-xs leading-relaxed">
-                                                            {log.changeDetails}
-                                                        </TooltipContent>
-                                                    )}
-                                                </Tooltip>
+                                            <td className="px-6 py-4 max-w-sm md:max-w-md lg:max-w-lg xl:max-w-2xl">
+                                                <div className="text-xs text-muted-foreground break-words whitespace-pre-wrap leading-relaxed">
+                                                    {log.changeDetails || '-'}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))

@@ -37,7 +37,7 @@ app.use(session({
     store: MongoStore.create({
         mongoUrl: process.env.MONGO_URI,
         collectionName: 'sessions',
-        touchAfter: 24 * 3600 // Only update session in DB once per day
+        touchAfter: 60 // Update session in DB every 60s to keep it alive with rolling
     }),
     cookie: {
         secure: false, // Set to true in production with HTTPS
