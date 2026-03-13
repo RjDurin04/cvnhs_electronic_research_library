@@ -152,6 +152,7 @@ const AdminStrandsPage: React.FC = () => {
 
   useEffect(() => {
     fetchStrands();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const openAddModal = () => {

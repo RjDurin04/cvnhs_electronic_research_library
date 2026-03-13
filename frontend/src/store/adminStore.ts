@@ -88,7 +88,7 @@ export const useAdminStore = create<AdminState>()(
             return true;
           } else {
             if (data.errors && Array.isArray(data.errors)) {
-              return data.errors.map((err: any) => err.msg).join('. ');
+              return data.errors.map((err: { msg: string }) => err.msg).join('. ');
             }
             return data.message || 'Invalid credentials';
           }

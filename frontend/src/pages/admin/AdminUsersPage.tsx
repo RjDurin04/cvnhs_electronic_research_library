@@ -154,6 +154,7 @@ const AdminUsersPage: React.FC = () => {
   useEffect(() => {
     fetchUsers();
     fetchSessions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addToast]);
 
   // Reset selection when tab changes
@@ -248,7 +249,7 @@ const AdminUsersPage: React.FC = () => {
         }
       } else {
         // Edit Mode
-        const body: any = {
+        const body: Record<string, unknown> = {
           full_name: formData.fullName,
           username: formData.username,
           role: formData.role,
@@ -533,6 +534,7 @@ const AdminUsersPage: React.FC = () => {
 
       return baseCols;
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [currentUser, activeUserIds, activeTab, selectedIds, data, refreshTick]
   );
 
@@ -884,7 +886,7 @@ const AdminUsersPage: React.FC = () => {
                           <select
                             disabled={modalMode === 'edit' && selectedUser?._id !== currentUser?.id}
                             value={formData.role}
-                            onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
+                            onChange={(e) => setFormData({ ...formData, role: e.target.value as 'admin' | 'viewer' | 'editor' })}
                             className={`w-full px-4 py-2 rounded-xl bg-secondary border border-border focus:border-primary outline-none text-sm transition-colors ${modalMode === 'edit' && selectedUser?._id !== currentUser?.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                           >
                             <option value="viewer">Viewer</option>

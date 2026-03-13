@@ -46,6 +46,7 @@ const AllPapersPage: React.FC = () => {
     if (strandParam && !filters.selectedStrands.includes(strandParam)) {
       toggleStrand(strandParam);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [strandParam]);
 
   const filteredPapers = useMemo(() => {
@@ -168,7 +169,7 @@ const AllPapersPage: React.FC = () => {
                 <h4 className="text-xs font-semibold text-foreground mb-2">Sort by</h4>
                 <select
                   value={filters.sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
+                  onChange={(e) => setSortBy(e.target.value as "title" | "newest" | "downloads")}
                   className="w-full px-4 py-2.5 rounded-xl bg-secondary border border-border focus:border-primary outline-none text-sm"
                 >
                   <option value="title">Title A-Z</option>

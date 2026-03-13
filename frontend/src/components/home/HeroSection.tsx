@@ -35,9 +35,9 @@ export const HeroSection: React.FC = () => {
           const strandsData = await strandsRes.json();
           // Logic for "Popular": Sort by paperCount or downloads, then take top 4
           const popularStrands = strandsData
-            .sort((a: any, b: any) => b.paperCount - a.paperCount)
+            .sort((a: { paperCount: number }, b: { paperCount: number }) => b.paperCount - a.paperCount)
             .slice(0, 4)
-            .map((s: any) => s.short);
+            .map((s: { short: string }) => s.short);
 
           setStrands(popularStrands);
         }

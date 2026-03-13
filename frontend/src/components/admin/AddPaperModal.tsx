@@ -35,9 +35,20 @@ interface Author {
 interface AddPaperModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => Promise<void> | void;
-  strands: any[]; // Passed from parent
-  initialData?: any; // For Edit Mode
+  onSubmit: (data: Record<string, unknown>) => Promise<void> | void;
+  strands: Array<{ id?: string; _id?: string; short: string;[key: string]: unknown }>; // Passed from parent
+  initialData?: {
+    title?: string;
+    abstract?: string;
+    keywords?: string | string[];
+    adviser?: string;
+    strand?: string;
+    school_year?: string;
+    grade_section?: string;
+    is_featured?: boolean;
+    authors?: Array<Partial<Author>>;
+    pdf_path?: string;
+  } | null; // For Edit Mode
 }
 
 const STEPS = [
@@ -88,7 +99,7 @@ export const AddPaperModal: React.FC<AddPaperModalProps> = ({ isOpen, onClose, o
       });
 
       if (initialData.authors && Array.isArray(initialData.authors)) {
-        setAuthors(initialData.authors.map((a: any) => ({
+        setAuthors(initialData.authors.map((a: Partial<Author>) => ({
           id: generateId(),
           firstName: a.firstName || '',
           middleName: a.middleName || '',
@@ -611,7 +622,7 @@ export const AddPaperModal: React.FC<AddPaperModalProps> = ({ isOpen, onClose, o
                         className="w-full px-4 py-2.5 rounded-xl bg-secondary border border-border focus:border-primary outline-none transition-all text-sm"
                       >
                         <option value="">Select strand</option>
-                        {strands.map((s: any) => (
+                        {strands.map((s: { id?: string; _id?: string; short: string;[key: string]: unknown }) => (
                           <option key={s._id || s.id} value={s.short}>{s.short}</option>
                         ))}
                       </select>

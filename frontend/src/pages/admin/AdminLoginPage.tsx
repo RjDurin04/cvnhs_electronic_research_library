@@ -55,6 +55,7 @@ const AdminLoginPage: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lockoutTimer > 0]); // Re-run when timer starts/stops
 
   // Auto-clear lockout error when timer hits 0

@@ -83,6 +83,7 @@ const AdminPapersPage: React.FC = () => {
   // Initial Fetch
   useEffect(() => {
     Promise.all([fetchPapers(), fetchStrands()]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchPapers = async () => {
@@ -132,7 +133,18 @@ const AdminPapersPage: React.FC = () => {
     setShowNewModal(true);
   };
 
-  const handleAddPaper = async (paperData: any) => {
+  const handleAddPaper = async (paperData: {
+    title: string;
+    abstract: string;
+    keywords: string;
+    adviser: string;
+    strand: string;
+    schoolYear: string;
+    gradeSection: string;
+    isFeatured: boolean;
+    authors: { firstName: string; middleName?: string; lastName: string; suffix?: string }[];
+    pdfFile?: File | Blob;
+  }) => {
     // 3. Validation handled in Modal, here we process upload
     try {
       const formData = new FormData();
@@ -310,6 +322,7 @@ const AdminPapersPage: React.FC = () => {
         ),
       },
     ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 

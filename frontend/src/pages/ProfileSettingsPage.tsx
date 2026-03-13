@@ -27,7 +27,7 @@ const ProfileSettingsPage: React.FC = () => {
             const res = await fetch('/api/users');
             if (res.ok) {
                 const users = await res.json();
-                const count = users.filter((u: any) => u.role === 'admin').length;
+                const count = users.filter((u: { role: string }) => u.role === 'admin').length;
                 setAdminCount(count);
             }
         } catch (error) {
@@ -46,7 +46,7 @@ const ProfileSettingsPage: React.FC = () => {
 
         setIsSubmitting(true);
         try {
-            const body: any = {
+            const body: Record<string, string> = {
                 full_name: formData.fullName,
                 username: formData.username,
                 currentPassword: formData.currentPassword
